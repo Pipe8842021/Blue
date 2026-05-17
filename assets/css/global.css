@@ -1,0 +1,287 @@
+/* ====================================================
+   BLUE THERAPY — Design System
+   Paleta extraída del logo: negro profundo · cyan turquesa · dorado
+   ==================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400;1,600&family=Poppins:wght@300;400;500;600;700&display=swap');
+
+:root {
+    /* Cyan / Turquesa — color principal del logo */
+    --cyan-950: #060e10;
+    --cyan-900: #0a1a1e;
+    --cyan-800: #0f2429;
+    --cyan-700: #162e35;
+    --cyan-600: #1e404d;
+    --cyan-500: #2b6070;
+    --cyan-400: #3d8fa3;
+    --cyan-300: #5bc4d0;   /* ← Color exacto del logo */
+    --cyan-200: #85d5de;
+    --cyan-100: #b8e9ef;
+    --cyan-50:  #e8f7fa;
+
+    /* Dorado — borde y acento premium del logo */
+    --gold-dark:  #a07a28;
+    --gold:       #c9a84c;
+    --gold-mid:   #d4b05a;
+    --gold-light: #e8c97a;
+    --gold-pale:  #f8f0d8;
+
+    /* Oscuros — fondo del logo */
+    --dark-950: #080a0b;
+    --dark-900: #0d1214;   /* ← Casi negro del logo */
+    --dark-800: #141c1f;
+    --dark-700: #1c2629;
+    --dark-600: #243035;
+
+    /* Neutros claros */
+    --white:     #ffffff;
+    --off-white: #f8fbfc;
+    --light:     #edf6f8;
+    --gray-100:  #e2ecef;
+    --gray-200:  #c8d9de;
+    --gray-400:  #8aa5ac;
+    --gray-600:  #4a6570;
+    --gray-800:  #1e3038;
+
+    /* Estado */
+    --success:   #2ecc8f;
+    --warning:   #e8b84b;
+    --danger:    #e05555;
+    --info:      var(--cyan-300);
+
+    /* Tipografía */
+    --font-display: 'Playfair Display', Georgia, serif;
+    --font-body:    'Poppins', system-ui, sans-serif;
+
+    /* Geometría */
+    --radius-xs: 6px;
+    --radius-sm: 10px;
+    --radius:    16px;
+    --radius-lg: 24px;
+    --radius-xl: 32px;
+
+    /* Sombras */
+    --shadow-sm: 0 2px 8px rgba(8, 10, 11, 0.12);
+    --shadow:    0 4px 24px rgba(8, 10, 11, 0.16);
+    --shadow-lg: 0 12px 48px rgba(8, 10, 11, 0.24);
+    --shadow-cyan: 0 6px 28px rgba(91, 196, 208, 0.22);
+    --shadow-gold: 0 6px 28px rgba(201, 168, 76, 0.28);
+
+    /* Transiciones */
+    --t: 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ====================================================
+   Reset & Base
+   ==================================================== */
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    scroll-behavior: smooth;
+    font-size: 16px;
+}
+
+body {
+    font-family: var(--font-body);
+    color: var(--gray-800);
+    background: var(--white);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    line-height: 1.2;
+    letter-spacing: -0.3px;
+}
+
+a { color: inherit; text-decoration: none; }
+img { max-width: 100%; display: block; }
+ul, ol { list-style: none; }
+button, input, select, textarea { font-family: var(--font-body); font-size: inherit; }
+
+/* ====================================================
+   Layout
+   ==================================================== */
+
+.container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 28px;
+}
+
+/* ====================================================
+   Botones
+   ==================================================== */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 13px 32px;
+    border-radius: 50px;
+    border: 2px solid transparent;
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 0.92rem;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    transition: all var(--t);
+    white-space: nowrap;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary {
+    background: var(--cyan-300);
+    color: var(--dark-900);
+    border-color: var(--cyan-300);
+    font-weight: 700;
+}
+
+.btn-primary:hover {
+    background: var(--cyan-200);
+    border-color: var(--cyan-200);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-cyan);
+}
+
+.btn-outline-light {
+    background: transparent;
+    color: var(--white);
+    border-color: rgba(255,255,255,0.35);
+}
+
+.btn-outline-light:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.6);
+    transform: translateY(-2px);
+}
+
+.btn-gold {
+    background: linear-gradient(135deg, var(--gold), var(--gold-mid));
+    color: var(--dark-900);
+    border-color: transparent;
+    font-weight: 700;
+}
+
+.btn-gold:hover {
+    background: linear-gradient(135deg, var(--gold-light), var(--gold));
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-gold);
+}
+
+.btn-dark {
+    background: var(--dark-900);
+    color: var(--white);
+    border-color: var(--dark-900);
+}
+
+.btn-dark:hover {
+    background: var(--dark-800);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.btn-sm {
+    padding: 9px 22px;
+    font-size: 0.85rem;
+}
+
+/* ====================================================
+   Badges de estado
+   ==================================================== */
+
+[class^="status--"] {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    border-radius: 50px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    font-family: var(--font-body);
+}
+
+[class^="status--"]::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.7;
+}
+
+.status--pending   { background: #fef8e7; color: #92680a; }
+.status--confirmed { background: #e0f8ef; color: #0f6b44; }
+.status--completed { background: #e0f3f8; color: #1a6878; }
+.status--cancelled { background: #fce8e8; color: #b33030; }
+
+/* ====================================================
+   Flash messages
+   ==================================================== */
+
+.flash {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 18px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.flash--success { background: #e0f8ef; color: #0a5c38; border-left: 3px solid var(--success); }
+.flash--error   { background: #fce8e8; color: #8b1a1a; border-left: 3px solid var(--danger); }
+.flash--info    { background: var(--cyan-50); color: var(--cyan-600); border-left: 3px solid var(--cyan-300); }
+
+/* ====================================================
+   Formularios base
+   ==================================================== */
+
+.form-group { margin-bottom: 20px; }
+
+.form-label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--gray-600);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 8px;
+}
+
+.form-input {
+    width: 100%;
+    padding: 13px 16px;
+    border: 1.5px solid var(--gray-100);
+    border-radius: var(--radius-sm);
+    font-size: 0.95rem;
+    color: var(--gray-800);
+    background: var(--white);
+    transition: border-color var(--t), box-shadow var(--t);
+    outline: none;
+}
+
+.form-input:focus {
+    border-color: var(--cyan-300);
+    box-shadow: 0 0 0 4px rgba(91, 196, 208, 0.12);
+}
+
+.form-input::placeholder { color: var(--gray-400); }
+.form-input--error { border-color: var(--danger) !important; }
+
+.form-error {
+    color: var(--danger);
+    font-size: 0.8rem;
+    margin-top: 6px;
+}

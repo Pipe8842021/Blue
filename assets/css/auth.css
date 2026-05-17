@@ -1,0 +1,285 @@
+/* ====================================================
+   BLUE THERAPY — Auth / Login
+   ==================================================== */
+
+.auth-page {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+
+/* ---- Panel izquierdo (decorativo) ---- */
+.auth-left {
+    background: var(--dark-900);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 64px;
+    position: relative;
+    overflow: hidden;
+}
+
+.auth-left__ambient {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(ellipse 60% 50% at 20% 50%, rgba(91,196,208,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 40% at 80% 80%, rgba(201,168,76,0.05) 0%, transparent 50%);
+}
+
+.auth-left__content {
+    position: relative;
+    z-index: 1;
+    max-width: 360px;
+    width: 100%;
+}
+
+/* Logo */
+.auth-left__logo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 56px;
+}
+
+.auth-left__logo-emblem {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: var(--dark-800);
+    border: 2px solid var(--gold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 4px rgba(201,168,76,0.1);
+}
+
+.auth-left__logo-emblem svg {
+    width: 26px; height: 26px;
+}
+
+.auth-left__logo-text { display: flex; flex-direction: column; line-height: 1.1; }
+.auth-left__logo-blue {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-style: italic;
+    font-weight: 700;
+    color: var(--cyan-300);
+}
+.auth-left__logo-therapy {
+    font-size: 0.62rem;
+    font-weight: 500;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gold);
+}
+
+/* Título y desc */
+.auth-left__title {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--white);
+    line-height: 1.25;
+    margin-bottom: 14px;
+    letter-spacing: -0.3px;
+}
+
+.auth-left__title em {
+    font-style: italic;
+    color: var(--cyan-300);
+}
+
+.auth-left__desc {
+    font-size: 0.9rem;
+    color: rgba(255,255,255,0.42);
+    line-height: 1.75;
+    margin-bottom: 44px;
+    font-weight: 300;
+}
+
+/* Features list */
+.auth-left__features {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.auth-left__feature {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(91,196,208,0.1);
+    border-radius: var(--radius-sm);
+    transition: all var(--t);
+}
+
+.auth-left__feature:hover {
+    background: rgba(91,196,208,0.05);
+    border-color: rgba(91,196,208,0.2);
+}
+
+.auth-left__feature-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: rgba(91,196,208,0.1);
+    border: 1px solid rgba(91,196,208,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.auth-left__feature-text {
+    font-size: 0.88rem;
+    color: rgba(255,255,255,0.7);
+    font-weight: 400;
+}
+
+/* Separador inferior decorativo */
+.auth-left__deco {
+    position: absolute;
+    bottom: -80px;
+    left: -80px;
+    width: 260px;
+    height: 260px;
+    border-radius: 50%;
+    border: 1px solid rgba(91,196,208,0.08);
+    pointer-events: none;
+}
+
+/* ---- Panel derecho (formulario) ---- */
+.auth-right {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 80px;
+    background: var(--off-white);
+}
+
+.auth-right__wrap {
+    width: 100%;
+    max-width: 400px;
+}
+
+.auth-right__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.83rem;
+    color: var(--gray-400);
+    margin-bottom: 44px;
+    transition: color var(--t);
+    font-weight: 500;
+    letter-spacing: 0.3px;
+}
+
+.auth-right__back:hover { color: var(--cyan-400); }
+
+.auth-right__title {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--dark-900);
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+}
+
+.auth-right__subtitle {
+    font-size: 0.92rem;
+    color: var(--gray-400);
+    margin-bottom: 36px;
+    font-weight: 300;
+}
+
+/* Formulario */
+.auth-form .form-label {
+    color: var(--gray-600);
+}
+
+.auth-form .form-input {
+    background: var(--white);
+    border-color: var(--gray-100);
+    border-radius: var(--radius-sm);
+    padding: 14px 18px;
+}
+
+.auth-form .form-input:focus {
+    border-color: var(--cyan-300);
+    box-shadow: 0 0 0 4px rgba(91,196,208,0.12);
+}
+
+.auth-password-wrap { position: relative; }
+
+.auth-password-toggle {
+    position: absolute;
+    right: 14px; top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--gray-400);
+    font-size: 0.95rem;
+    padding: 4px;
+    line-height: 1;
+    transition: color var(--t);
+}
+
+.auth-password-toggle:hover { color: var(--cyan-400); }
+
+.auth-submit {
+    width: 100%;
+    padding: 15px;
+    background: var(--dark-900);
+    color: var(--white);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all var(--t);
+    margin-top: 10px;
+    position: relative;
+    overflow: hidden;
+}
+
+.auth-submit::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(91,196,208,0.15), transparent);
+    opacity: 0;
+    transition: opacity var(--t);
+}
+
+.auth-submit:hover {
+    background: var(--dark-800);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(8,10,11,0.3);
+}
+
+.auth-submit:hover::after { opacity: 1; }
+
+.auth-submit:active { transform: translateY(0); }
+
+.auth-right__hint {
+    margin-top: 28px;
+    text-align: center;
+    font-size: 0.82rem;
+    color: var(--gray-400);
+    font-weight: 300;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 900px) {
+    .auth-page { grid-template-columns: 1fr; }
+    .auth-left  { display: none; }
+    .auth-right { padding: 48px 28px; background: var(--white); }
+}
