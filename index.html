@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blue Therapy — Centro de Estética y Bienestar</title>
+    <meta name="description" content="Blue Therapy es tu centro especializado en tratamientos corporales, faciales, depilación láser, spa y terapias biológicas. Reserva tu cita en línea.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="assets/css/global.css">
+    <link rel="stylesheet" href="assets/css/landing.css">
+</head>
+<body>
+
+<!-- ===================================================
+     NAVBAR
+=================================================== -->
+<header class="navbar" id="navbar">
+    <div class="container">
+        <div class="navbar__inner">
+
+            <a href="index.html" class="navbar__logo">
+                <div class="navbar__logo-emblem">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 3C12 3 7 7 7 12C7 14.5 8.5 16.5 10 17.5L12 21L14 17.5C15.5 16.5 17 14.5 17 12C17 7 12 3 12 3Z" fill="#5BC4D0" opacity="0.9"/>
+                        <path d="M9 8C9 8 6 10 6 13C6 14.5 6.8 15.8 8 16.5" stroke="#5BC4D0" stroke-width="1.2" stroke-linecap="round" opacity="0.5"/>
+                        <path d="M15 8C15 8 18 10 18 13C18 14.5 17.2 15.8 16 16.5" stroke="#5BC4D0" stroke-width="1.2" stroke-linecap="round" opacity="0.5"/>
+                    </svg>
+                </div>
+                <div class="navbar__logo-text">
+                    <span class="navbar__logo-blue">Blue</span>
+                    <span class="navbar__logo-therapy">Therapy</span>
+                </div>
+            </a>
+
+            <nav class="navbar__nav" aria-label="Navegación principal">
+                <a href="#servicios">Servicios</a>
+                <a href="#como-funciona">¿Cómo funciona?</a>
+                <a href="#nosotros">Nosotros</a>
+                <a href="#contacto">Contacto</a>
+            </nav>
+
+            <div class="navbar__actions">
+                <a href="#como-funciona" class="btn btn-outline-light btn-sm">Reservar cita</a>
+                <a href="login.html"     class="btn btn-gold btn-sm">Acceder</a>
+            </div>
+
+            <button class="navbar__menu-btn" aria-label="Abrir menú" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+
+        </div>
+    </div>
+</header>
+
+<!-- Mobile Menu -->
+<div class="mobile-menu" role="dialog" aria-label="Menú móvil">
+    <button class="mobile-menu__close" aria-label="Cerrar menú">✕</button>
+    <a href="#servicios">Servicios</a>
+    <a href="#como-funciona">¿Cómo funciona?</a>
+    <a href="#nosotros">Nosotros</a>
+    <a href="#contacto">Contacto</a>
+    <a href="#como-funciona" class="btn btn-outline-light" style="margin-top:8px">Reservar cita</a>
+    <a href="login.html" class="btn btn-gold">Acceder</a>
+</div>
+
+
+<!-- ===================================================
+     HERO
+=================================================== -->
+<section class="hero">
+    <div class="hero__ambient" aria-hidden="true"></div>
+
+    <div class="hero__lines" aria-hidden="true">
+        <div class="hero__line" style="width:500px;height:500px;top:50%;left:55%;transform:translate(-50%,-50%)"></div>
+        <div class="hero__line" style="width:750px;height:750px;top:50%;left:55%;transform:translate(-50%,-50%);opacity:.4"></div>
+        <div class="hero__line" style="width:1000px;height:1000px;top:50%;left:55%;transform:translate(-50%,-50%);opacity:.2"></div>
+    </div>
+
+    <div class="container">
+        <div class="hero__inner">
+
+            <div class="hero__content">
+                <div class="hero__eyebrow">
+                    <span class="hero__eyebrow-line"></span>
+                    <span class="hero__eyebrow-text">Centro de Estética &amp; Bienestar</span>
+                </div>
+
+                <h1 class="hero__title">
+                    Tu bienestar,<br>
+                    nuestra <em>pasión</em>
+                </h1>
+
+                <p class="hero__desc">
+                    Tratamientos corporales, faciales, depilación láser, spa y terapias biológicas. Resultados reales, atención de primera.
+                </p>
+
+                <div class="hero__actions">
+                    <a href="#como-funciona" class="btn btn-primary" style="font-size:0.97rem;padding:14px 36px">
+                        Reservar mi cita
+                    </a>
+                    <a href="#servicios" class="btn btn-outline-light" style="font-size:0.97rem;padding:14px 36px">
+                        Ver servicios
+                    </a>
+                </div>
+
+                <div class="hero__divider"></div>
+
+                <div class="hero__stats">
+                    <div class="hero__stat">
+                        <div class="hero__stat-value" data-count="500" data-suffix="+">500+</div>
+                        <div class="hero__stat-label">Clientes satisfechas</div>
+                    </div>
+                    <div class="hero__stat">
+                        <div class="hero__stat-value" data-count="10" data-suffix="+">10+</div>
+                        <div class="hero__stat-label">Servicios especializados</div>
+                    </div>
+                    <div class="hero__stat">
+                        <div class="hero__stat-value" data-count="5" data-suffix=" años">5 años</div>
+                        <div class="hero__stat-label">De experiencia</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hero__visual" aria-hidden="true">
+                <div class="hero__card-wrap">
+                    <div class="hero__card-glow"></div>
+                    <div class="hero__card">
+                        <div class="hero__card-header">
+                            <span class="hero__card-title">Disponibilidad hoy</span>
+                            <span class="hero__card-badge">
+                                <span class="hero__card-badge-dot"></span>
+                                En línea
+                            </span>
+                        </div>
+
+                        <div class="hero__card-items">
+                            <div class="hero__card-item">
+                                <div class="hero__card-item-icon" style="background:rgba(91,196,208,0.12);border:1px solid rgba(91,196,208,0.2)">✨</div>
+                                <div>
+                                    <div class="hero__card-item-name">Limpieza facial profunda</div>
+                                    <div class="hero__card-item-time">Hoy · 10:00 AM</div>
+                                </div>
+                            </div>
+                            <div class="hero__card-item">
+                                <div class="hero__card-item-icon" style="background:rgba(46,204,143,0.1);border:1px solid rgba(46,204,143,0.15)">🌿</div>
+                                <div>
+                                    <div class="hero__card-item-name">Masaje relajante</div>
+                                    <div class="hero__card-item-time">Hoy · 2:00 PM</div>
+                                </div>
+                            </div>
+                            <div class="hero__card-item">
+                                <div class="hero__card-item-icon" style="background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.15)">💫</div>
+                                <div>
+                                    <div class="hero__card-item-name">Depilación láser</div>
+                                    <div class="hero__card-item-time">Mañana · 11:00 AM</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <a href="#como-funciona" class="btn btn-primary hero__card-cta">
+                            Reservar ahora →
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+
+<!-- ===================================================
+     SERVICIOS
+=================================================== -->
+<section class="section section--dark" id="servicios">
+    <div class="container">
+
+        <div style="margin-bottom:56px">
+            <div class="section__eyebrow">
+                <span class="section__eyebrow-line"></span>
+                <span class="section__eyebrow-text">Lo que ofrecemos</span>
+            </div>
+            <h2 class="section__title section__title--light">
+                Nuestros <em>servicios</em>
+            </h2>
+            <p class="section__desc section__desc--light">
+                Un catálogo completo de tratamientos diseñados para tu bienestar y cuidado personal.
+            </p>
+        </div>
+
+        <div class="services__grid">
+
+            <div class="service-card reveal reveal-delay-1">
+                <div class="service-card__icon">🫀</div>
+                <h3 class="service-card__name">Tratamientos Corporales</h3>
+                <p class="service-card__desc">Reducción de medidas, cavitación y moldeo corporal avanzado.</p>
+            </div>
+
+            <div class="service-card reveal reveal-delay-2">
+                <div class="service-card__icon">✨</div>
+                <h3 class="service-card__name">Tratamientos Faciales</h3>
+                <p class="service-card__desc">Limpieza profunda, hidratación y rejuvenecimiento facial.</p>
+            </div>
+
+            <div class="service-card reveal reveal-delay-3">
+                <div class="service-card__icon">💫</div>
+                <h3 class="service-card__name">Depilación Láser</h3>
+                <p class="service-card__desc">Tecnología de punta para una piel suave y duradera.</p>
+            </div>
+
+            <div class="service-card reveal reveal-delay-4">
+                <div class="service-card__icon">🌿</div>
+                <h3 class="service-card__name">Spa</h3>
+                <p class="service-card__desc">Masajes, rituales y experiencias de relajación total.</p>
+            </div>
+
+            <div class="service-card reveal reveal-delay-1">
+                <div class="service-card__icon">🔬</div>
+                <h3 class="service-card__name">Terapias Biológicas</h3>
+                <p class="service-card__desc">Biomagnetismo, terapia neural y regulación biológica.</p>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+
+<!-- ===================================================
+     CÓMO FUNCIONA
+=================================================== -->
+<section class="section section--charcoal" id="como-funciona">
+    <div class="container">
+
+        <div style="text-align:center;margin-bottom:68px">
+            <div class="section__eyebrow" style="justify-content:center">
+                <span class="section__eyebrow-line"></span>
+                <span class="section__eyebrow-text">Proceso simple</span>
+                <span class="section__eyebrow-line"></span>
+            </div>
+            <h2 class="section__title section__title--light" style="margin-bottom:14px">
+                ¿Cómo <em>funciona</em>?
+            </h2>
+            <p class="section__desc section__desc--light" style="margin:0 auto">
+                Reservar tu cita es rápido y sencillo. Sin crear cuenta, sin complicaciones.
+            </p>
+        </div>
+
+        <div class="steps">
+            <div class="step reveal reveal-delay-1">
+                <div class="step__number">1</div>
+                <h3 class="step__title">Elige tu servicio</h3>
+                <p class="step__desc">Explora nuestro catálogo y selecciona el tratamiento que más se adapte a ti.</p>
+            </div>
+            <div class="step reveal reveal-delay-2">
+                <div class="step__number">2</div>
+                <h3 class="step__title">Selecciona fecha y hora</h3>
+                <p class="step__desc">Revisa la disponibilidad en tiempo real y escoge el horario ideal para ti.</p>
+            </div>
+            <div class="step reveal reveal-delay-3">
+                <div class="step__number">3</div>
+                <h3 class="step__title">Deja tus datos</h3>
+                <p class="step__desc">Solo necesitamos tu nombre y teléfono. Sin registros ni contraseñas.</p>
+            </div>
+            <div class="step reveal reveal-delay-4">
+                <div class="step__number">4</div>
+                <h3 class="step__title">¡Te esperamos!</h3>
+                <p class="step__desc">Recibirás la confirmación de tu cita. Nuestro equipo estará listo para atenderte.</p>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+
+<!-- ===================================================
+     NOSOTROS
+=================================================== -->
+<section class="section section--white" id="nosotros">
+    <div class="container">
+        <div class="about__grid">
+
+            <div>
+                <div class="section__eyebrow">
+                    <span class="section__eyebrow-line" style="background:var(--gold)"></span>
+                    <span class="section__eyebrow-text" style="color:var(--gold)">Sobre nosotros</span>
+                </div>
+                <h2 class="section__title section__title--dark" style="margin-bottom:20px">
+                    El cuidado que <span class="gold">mereces</span>
+                </h2>
+                <p class="section__desc section__desc--dark" style="margin-bottom:18px">
+                    En <strong>Blue Therapy</strong> combinamos ciencia y bienestar para ofrecerte los mejores tratamientos estéticos y terapéuticos.
+                    Nuestro equipo de profesionales certificados está comprometido con tu salud y tu imagen.
+                </p>
+                <p style="font-size:0.95rem;color:var(--gray-600);line-height:1.8;font-weight:300">
+                    Cada tratamiento es personalizado, porque entendemos que cada persona es única y merece atención a la medida.
+                </p>
+
+                <div class="about__stats">
+                    <div>
+                        <div class="about__stat-value">5+</div>
+                        <div class="about__stat-label">Años de experiencia</div>
+                    </div>
+                    <div>
+                        <div class="about__stat-value">100%</div>
+                        <div class="about__stat-label">Profesionales certificados</div>
+                    </div>
+                    <div>
+                        <div class="about__stat-value">+500</div>
+                        <div class="about__stat-label">Clientes satisfechas</div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="about__cards">
+                    <div class="about__card reveal">
+                        <div class="about__card-icon">🏆</div>
+                        <h4 class="about__card-title">Calidad garantizada</h4>
+                        <p class="about__card-desc">Equipos de última tecnología y productos de primera línea.</p>
+                    </div>
+                    <div class="about__card reveal about__offset reveal-delay-1">
+                        <div class="about__card-icon">💎</div>
+                        <h4 class="about__card-title">Atención personalizada</h4>
+                        <p class="about__card-desc">Cada tratamiento adaptado a tu tipo de piel y necesidades.</p>
+                    </div>
+                    <div class="about__card reveal reveal-delay-2">
+                        <div class="about__card-icon">🌟</div>
+                        <h4 class="about__card-title">Resultados reales</h4>
+                        <p class="about__card-desc">Protocolos efectivos con resultados visibles y duraderos.</p>
+                    </div>
+                    <div class="about__card about__card--accent reveal about__offset reveal-delay-3">
+                        <div class="about__card-icon">✦</div>
+                        <h4 class="about__card-title">Reserva fácil</h4>
+                        <p class="about__card-desc">Sin cuenta. Sin esperas. Solo tu bienestar.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+
+<!-- ===================================================
+     CTA
+=================================================== -->
+<section class="cta-section">
+    <div class="container">
+        <div class="cta-section__inner reveal">
+            <div class="cta-section__divider"></div>
+            <h2 class="cta-section__title">
+                ¿Lista para <em>transformarte</em>?
+            </h2>
+            <p class="cta-section__desc">
+                Agenda tu primera cita hoy mismo. Sin registros, sin complicaciones — solo resultados.
+            </p>
+            <a href="#como-funciona" class="btn btn-primary" style="font-size:1rem;padding:16px 44px">
+                Reservar mi cita ahora
+            </a>
+        </div>
+    </div>
+</section>
+
+
+<!-- ===================================================
+     FOOTER
+=================================================== -->
+<footer class="footer" id="contacto">
+    <div class="container">
+        <div class="footer__grid">
+
+            <div>
+                <div>
+                    <span class="footer__logo-blue">Blue</span>
+                    <span class="footer__logo-therapy"> Therapy</span>
+                </div>
+                <p class="footer__brand-desc">
+                    Centro especializado en estética y bienestar. Tu transformación comienza aquí, con profesionalismo y dedicación.
+                </p>
+            </div>
+
+            <div>
+                <h4 class="footer__heading">Servicios</h4>
+                <ul class="footer__links">
+                    <li><a href="#servicios">Tratamientos Corporales</a></li>
+                    <li><a href="#servicios">Tratamientos Faciales</a></li>
+                    <li><a href="#servicios">Depilación Láser</a></li>
+                    <li><a href="#servicios">Spa</a></li>
+                    <li><a href="#servicios">Terapias Biológicas</a></li>
+                </ul>
+            </div>
+
+            <div>
+                <h4 class="footer__heading">Contacto</h4>
+                <ul class="footer__links">
+                    <li>📍 Tu ciudad, Colombia</li>
+                    <li>📞 +57 300 000 0000</li>
+                    <li>✉️ info@bluetherapy.com</li>
+                    <li>🕐 Lun – Sáb: 8:00am – 7:00pm</li>
+                </ul>
+            </div>
+
+        </div>
+
+        <div class="footer__bottom">
+            <span class="footer__bottom-copy">© 2025 Blue Therapy. Todos los derechos reservados.</span>
+            <a href="login.html" class="footer__bottom-link">Panel de administración</a>
+        </div>
+    </div>
+</footer>
+
+<script src="assets/js/main.js"></script>
+</body>
+</html>
