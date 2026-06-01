@@ -1,0 +1,13 @@
+# Artefactos de pruebas con Playwright
+.playwright-mcp/
+
+# Imágenes subidas por usuarios (la carpeta se conserva con .gitkeep)
+assets/img/gallery/*
+!assets/img/gallery/.gitkeep
+
+# Archivos del sistema / editor
+Thumbs.db
+.DS_Store
+*.log
+.vscode/
+.idea/
