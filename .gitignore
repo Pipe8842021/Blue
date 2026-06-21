@@ -11,3 +11,7 @@ Thumbs.db
 *.log
 .vscode/
 .idea/
+
+# Archivos temporales/copias de Word
+~$*.docx
+*_ACTUALIZADO.docx

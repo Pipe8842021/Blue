@@ -1,0 +1,10 @@
+/* ============================================================
+   m-finanzas.css  ·  Responsable: Jhonatan
+   Módulos: Reserva en línea · Finanzas · Login/Configuración
+   ------------------------------------------------------------
+   - Solo AGREGA estilos aquí; NO edites admin.css.
+   - Reutiliza variables y componentes existentes (ver CLAUDE.md).
+   - Carga este archivo desde tus páginas del panel con:
+       $extraCss = ['/Blue/assets/css/m-finanzas.css'];
+     antes de incluir includes/admin_layout.php
+   ============================================================ */
