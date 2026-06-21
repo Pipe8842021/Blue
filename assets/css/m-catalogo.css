@@ -1,0 +1,10 @@
+/* ============================================================
+   m-catalogo.css  ·  Responsable: Ana
+   Módulos: Clientes · Servicios · Galería
+   ------------------------------------------------------------
+   - Solo AGREGA estilos aquí; NO edites admin.css.
+   - Reutiliza variables y componentes existentes (ver CLAUDE.md).
+   - Carga este archivo desde tus páginas con:
+       $extraCss = ['/Blue/assets/css/m-catalogo.css'];
+     antes de incluir includes/admin_layout.php
+   ============================================================ */

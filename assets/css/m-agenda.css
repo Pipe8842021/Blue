@@ -1,0 +1,10 @@
+/* ============================================================
+   m-agenda.css  ·  Responsable: Felipe
+   Módulos: Citas · Dashboard · Panel Staff
+   ------------------------------------------------------------
+   - Solo AGREGA estilos aquí; NO edites admin.css.
+   - Reutiliza variables y componentes existentes (ver CLAUDE.md).
+   - Carga este archivo desde tus páginas con:
+       $extraCss = ['/Blue/assets/css/m-agenda.css'];
+     antes de incluir includes/admin_layout.php
+   ============================================================ */
