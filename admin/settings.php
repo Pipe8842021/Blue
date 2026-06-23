@@ -93,6 +93,7 @@ $profile = $prof->fetch();
 
 $pageTitle  = 'Configuración';
 $activePage = 'settings';
+$extraCss   = ['/Blue/assets/css/m-finanzas.css'];
 require_once __DIR__ . '/../includes/admin_layout.php';
 ?>
 
@@ -112,6 +113,13 @@ require_once __DIR__ . '/../includes/admin_layout.php';
 <!-- ══════ PERFIL ══════ -->
 <?php if ($tab === 'profile'): ?>
   <div class="card"><div class="card-body">
+    <div class="profile-header">
+      <div class="profile-avatar-lg"><?= mb_strtoupper(mb_substr($profile['name'], 0, 1)) ?></div>
+      <div class="profile-header-info">
+        <div class="profile-name"><?= e($profile['name']) ?></div>
+        <div class="profile-email"><?= e($profile['email']) ?></div>
+      </div>
+    </div>
     <form method="POST" style="max-width:520px">
       <div class="form-grid">
         <div class="form-field full"><label>Nombre</label><input type="text" name="name" class="form-control" value="<?= e($profile['name']) ?>" required></div>
@@ -132,7 +140,14 @@ require_once __DIR__ . '/../includes/admin_layout.php';
   <div class="card"><div class="card-body">
     <form method="POST" style="max-width:440px">
       <div class="form-field full" style="margin-bottom:14px"><label>Contraseña actual</label><input type="password" name="current" class="form-control" required></div>
-      <div class="form-field full" style="margin-bottom:14px"><label>Nueva contraseña</label><input type="password" name="new" class="form-control" minlength="6" required><div class="form-hint">Mínimo 6 caracteres.</div></div>
+      <div class="form-field full" style="margin-bottom:14px">
+        <label>Nueva contraseña</label>
+        <input type="password" name="new" id="new-password" class="form-control" minlength="6" required>
+        <div class="strength-wrap">
+          <div class="strength-bar"><div class="strength-fill" id="strength-fill"></div></div>
+          <span class="strength-label" id="strength-label"></span>
+        </div>
+      </div>
       <div class="form-field full"><label>Repetir nueva contraseña</label><input type="password" name="repeat" class="form-control" minlength="6" required></div>
       <input type="hidden" name="action" value="password">
       <input type="hidden" name="tab" value="security">
@@ -251,4 +266,37 @@ require_once __DIR__ . '/../includes/admin_layout.php';
   </script>
 <?php endif; ?>
 
+<script>
+// ── Fortaleza de contraseña ───────────────────────────────
+(function () {
+  const input  = document.getElementById('new-password');
+  const fill   = document.getElementById('strength-fill');
+  const label  = document.getElementById('strength-label');
+  if (!input) return;
+
+  const levels = [
+    { pct:  0, color: '',         text: '' },
+    { pct: 20, color: '#ef4444',  text: 'Muy débil'  },
+    { pct: 40, color: '#f97316',  text: 'Débil'       },
+    { pct: 60, color: '#f59e0b',  text: 'Regular'     },
+    { pct: 80, color: '#10b981',  text: 'Buena'       },
+    { pct:100, color: '#059669',  text: 'Excelente'   },
+  ];
+
+  input.addEventListener('input', function () {
+    const v = this.value;
+    let score = 0;
+    if (v.length >= 6)           score++;
+    if (v.length >= 10)          score++;
+    if (/[A-Z]/.test(v))        score++;
+    if (/[0-9]/.test(v))        score++;
+    if (/[^A-Za-z0-9]/.test(v)) score++;
+    const lvl = v.length === 0 ? levels[0] : levels[score] ?? levels[5];
+    fill.style.width           = lvl.pct + '%';
+    fill.style.backgroundColor = lvl.color;
+    label.textContent          = lvl.text;
+    label.style.color          = lvl.color;
+  });
+}());
+</script>
 <?php require_once __DIR__ . '/../includes/admin_footer.php'; ?>

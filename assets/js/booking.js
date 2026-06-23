@@ -316,6 +316,29 @@ function updateSelectionBar() {
   }
 }
 
+// ── Validación inline ─────────────────────────────────────
+function showFieldError(inputId, msg) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  input.classList.add('error');
+  let err = input.parentNode.querySelector('.field-error-msg');
+  if (!err) {
+    err = document.createElement('span');
+    err.className = 'field-error-msg';
+    input.parentNode.appendChild(err);
+  }
+  err.textContent = msg;
+  err.style.display = 'block';
+}
+
+function clearFieldError(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  input.classList.remove('error');
+  const err = input.parentNode.querySelector('.field-error-msg');
+  if (err) err.style.display = 'none';
+}
+
 // ── Step 3 helpers ─────────────────────────────────────────
 function buildBookingSummaryBar() {
   const bsb = document.getElementById('bsb');
@@ -342,9 +365,26 @@ function buildBookingSummaryBar() {
 function validateStep3() {
   const name  = document.getElementById('f-name').value.trim();
   const phone = document.getElementById('f-phone').value.trim();
-  document.getElementById('f-name').classList.toggle('error',  !name);
-  document.getElementById('f-phone').classList.toggle('error', !phone);
-  return !!(name && phone);
+  let ok = true;
+
+  if (!name) {
+    showFieldError('f-name', 'El nombre completo es obligatorio');
+    ok = false;
+  } else {
+    clearFieldError('f-name');
+  }
+
+  if (!phone) {
+    showFieldError('f-phone', 'El teléfono es obligatorio');
+    ok = false;
+  } else if (!/^[+\d][\d\s\-\(\)]{5,}$/.test(phone)) {
+    showFieldError('f-phone', 'Formato inválido — incluye código de país (ej: +57 300…)');
+    ok = false;
+  } else {
+    clearFieldError('f-phone');
+  }
+
+  return ok;
 }
 
 // ── Step 4: submit ─────────────────────────────────────────
@@ -572,9 +612,30 @@ document.getElementById('btn-back').addEventListener('click', () => {
   if (booking.step > 1) goToStep(booking.step - 1);
 });
 
-// ── Input listeners for step 3 validation ─────────────────
-['f-name','f-phone'].forEach(id => {
-  document.getElementById(id)?.addEventListener('input', () => updateNextBtn());
+// ── Listeners para validación en vivo (paso 3) ────────────
+document.getElementById('f-name')?.addEventListener('blur', function () {
+  if (!this.value.trim()) showFieldError('f-name', 'El nombre completo es obligatorio');
+  else clearFieldError('f-name');
+  updateNextBtn();
+});
+
+document.getElementById('f-phone')?.addEventListener('blur', function () {
+  const v = this.value.trim();
+  if (!v) {
+    showFieldError('f-phone', 'El teléfono es obligatorio');
+  } else if (!/^[+\d][\d\s\-\(\)]{5,}$/.test(v)) {
+    showFieldError('f-phone', 'Formato inválido — incluye código de país (ej: +57 300…)');
+  } else {
+    clearFieldError('f-phone');
+  }
+  updateNextBtn();
+});
+
+['f-name', 'f-phone'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', function () {
+    if (this.value.trim()) clearFieldError(id);
+    updateNextBtn();
+  });
 });
 
 // ── Init ──────────────────────────────────────────────────

@@ -1,0 +1,156 @@
+/* ============================================================
+   BLUE THERAPY — Módulo Finanzas / Configuración (Jhonatan)
+   Solo agregar aquí; nunca editar admin.css ni global.css
+   ============================================================ */
+
+/* ── Colores en tarjetas de resumen ── */
+.summary-card.income  .value { color: var(--confirmed, #10b981); }
+.summary-card.expense .value { color: var(--cancelled, #ef4444); }
+.summary-card.balance .value { color: var(--teal,      #5bc4b8); }
+
+/* ── Tipo de movimiento en tabla ── */
+.type-income  { color: var(--confirmed, #10b981); font-weight: 600; }
+.type-expense { color: var(--cancelled, #ef4444); font-weight: 600; }
+
+/* ── Tarjeta de gráfico ── */
+.card-chart {
+    margin-bottom: 20px;
+}
+.card-chart .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.fin-chart-wrap {
+    position: relative;
+    height: 220px;
+}
+
+/* Leyenda del gráfico */
+.chart-legend {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 12px;
+    color: var(--muted, #6b7280);
+}
+.chart-legend-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+/* ── Filtros — rango de fechas ── */
+.filters-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+.fin-date-range {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.filter-sep {
+    font-size: 13px;
+    color: var(--muted, #6b7280);
+    white-space: nowrap;
+    user-select: none;
+}
+
+/* ── Botón exportar CSV ── */
+.btn-export {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 16px;
+    border: 1.5px solid var(--border, #e5e7eb);
+    border-radius: 8px;
+    background: #fff;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted, #6b7280);
+    cursor: pointer;
+    text-decoration: none;
+    transition: border-color .2s, color .2s, background .2s;
+    white-space: nowrap;
+    margin-left: auto;
+}
+.btn-export:hover {
+    border-color: var(--teal, #5bc4b8);
+    color: var(--teal, #5bc4b8);
+    background: rgba(91,196,184,.05);
+}
+
+/* ── Avatar de perfil (configuración) ── */
+.profile-header {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border, #e5e7eb);
+    margin-bottom: 24px;
+}
+.profile-avatar-lg {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--teal, #5bc4b8), var(--teal-dark, #3aa89e));
+    color: #fff;
+    font-size: 26px;
+    font-weight: 700;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    letter-spacing: 0;
+}
+.profile-header-info .profile-name  { font-size: 16px; font-weight: 700; color: var(--text, #111827); margin-bottom: 3px; }
+.profile-header-info .profile-email { font-size: 13px; color: var(--muted, #6b7280); }
+
+/* ── Fortaleza de contraseña ── */
+.strength-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+}
+.strength-bar {
+    flex: 1;
+    height: 4px;
+    background: var(--border, #e5e7eb);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.strength-fill {
+    height: 100%;
+    width: 0;
+    border-radius: 4px;
+    transition: width .3s ease, background-color .3s ease;
+}
+.strength-label {
+    font-size: 11px;
+    font-weight: 700;
+    min-width: 68px;
+    text-align: right;
+    transition: color .3s;
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+    .fin-date-range  { flex-direction: column; align-items: flex-start; }
+    .btn-export      { margin-left: 0; }
+    .chart-legend    { flex-wrap: wrap; gap: 8px; }
+    .fin-chart-wrap  { height: 180px; }
+    .profile-header  { flex-direction: column; text-align: center; }
+}
