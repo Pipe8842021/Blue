@@ -97,10 +97,20 @@ $catIcons = ['body'=>'🫀','face'=>'✨','laser'=>'💫','spa'=>'🌿','therapy
   <!-- ═══ STEP 1: Servicios ═══ -->
   <div class="step-body">
   <div class="step-panel active" id="step-1">
-    <div class="step-heading">
-      <div class="step-eyebrow">Paso 1 de 4</div>
-      <div class="step-title">Selecciona tu servicio</div>
-      <div class="step-subtitle">Puedes elegir uno o varios para la misma cita. El tiempo total se calcula automáticamente.</div>
+    <div class="service-filter-row">
+      <div class="step-heading">
+        <div class="step-eyebrow">Paso 1 de 4</div>
+        <div class="step-title">Selecciona tu servicio</div>
+        <div class="step-subtitle">Elige uno o varios tratamientos para la misma cita. El tiempo total se calcula automáticamente.</div>
+      </div>
+      <?php if (!empty($categories)): ?>
+      <div class="service-filters">
+        <button class="sf-tab active" data-cat="all">Todos</button>
+        <?php foreach ($categories as $catId => $cat): ?>
+          <button class="sf-tab" data-cat="<?= $catId ?>"><?= htmlspecialchars($cat['name']) ?></button>
+        <?php endforeach; ?>
+      </div>
+      <?php endif; ?>
     </div>
 
     <?php if (empty($categories)): ?>
@@ -108,26 +118,36 @@ $catIcons = ['body'=>'🫀','face'=>'✨','laser'=>'💫','spa'=>'🌿','therapy
     <?php else: ?>
       <div id="service-categories">
         <?php foreach ($categories as $catId => $cat): ?>
-          <div class="category-group">
+          <div class="category-group" data-cat-group="<?= $catId ?>">
             <div class="category-label">
               <?= $catIcons[$cat['icon']] ?? '✦' ?> &nbsp;<?= htmlspecialchars($cat['name']) ?>
             </div>
             <div class="services-list">
-              <?php foreach ($cat['services'] as $svc): ?>
+              <?php foreach ($cat['services'] as $svc):
+                $d      = $svc['duration_min'];
+                $durStr = $d >= 60
+                  ? intdiv($d, 60).'h'.($d % 60 ? ' '.($d % 60).'min' : '')
+                  : $d.' min';
+              ?>
                 <label class="service-option"
                        data-id="<?= $svc['id'] ?>"
                        data-duration="<?= $svc['duration_min'] ?>"
                        data-price="<?= $svc['price'] ?>"
-                       data-name="<?= htmlspecialchars($svc['name']) ?>">
+                       data-name="<?= htmlspecialchars($svc['name']) ?>"
+                       data-cat-id="<?= $catId ?>"
+                       data-cat-icon="<?= htmlspecialchars($cat['icon']) ?>">
                   <input type="checkbox" name="services[]" value="<?= $svc['id'] ?>">
-                  <div class="service-opt-body">
-                    <div class="service-opt-icon"><?= $catIcons[$cat['icon']] ?? '✦' ?></div>
-                    <div class="service-opt-info">
-                      <div class="service-opt-name"><?= htmlspecialchars($svc['name']) ?></div>
-                      <div class="service-opt-meta"><?= $svc['duration_min'] ?> min</div>
+                  <div class="service-card-visual">
+                    <span class="service-card-duration"><?= $durStr ?></span>
+                    <div class="service-card-checkmark">✓</div>
+                    <div class="service-card-photo-label">foto · <?= htmlspecialchars(strtolower($cat['name'])) ?></div>
+                  </div>
+                  <div class="service-card-info">
+                    <div class="service-card-name"><?= htmlspecialchars($svc['name']) ?></div>
+                    <div class="service-card-bottom">
+                      <span class="service-card-price"><?= formatPrice($svc['price']) ?></span>
+                      <span class="service-card-add"></span>
                     </div>
-                    <div class="service-opt-price"><?= formatPrice($svc['price']) ?></div>
-                    <div class="service-opt-check">✓</div>
                   </div>
                 </label>
               <?php endforeach; ?>

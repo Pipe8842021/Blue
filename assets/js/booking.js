@@ -1,3 +1,6 @@
+
+
+
 /* ============================================================
    BLUE THERAPY — Booking Wizard
    ============================================================ */
@@ -638,6 +641,21 @@ document.getElementById('f-phone')?.addEventListener('blur', function () {
   });
 });
 
+// ── Category filter tabs ───────────────────────────────────
+function initServiceFilters() {
+  document.querySelectorAll('.sf-tab').forEach(tab => {
+    tab.addEventListener('click', function () {
+      document.querySelectorAll('.sf-tab').forEach(t => t.classList.remove('active'));
+      this.classList.add('active');
+      const cat = this.dataset.cat;
+      document.querySelectorAll('.category-group').forEach(group => {
+        group.classList.toggle('hidden', cat !== 'all' && group.dataset.catGroup !== cat);
+      });
+    });
+  });
+}
+
 // ── Init ──────────────────────────────────────────────────
 initServiceCards();
+initServiceFilters();
 updateNextBtn();
