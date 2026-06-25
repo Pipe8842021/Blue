@@ -8,3 +8,119 @@
        $extraCss = ['/Blue/assets/css/m-agenda.css'];
      antes de incluir includes/admin_layout.php
    ============================================================ */
+
+/* ════════════════════════════════════════
+   ICONOS SVG (en lugar de emojis) — tarjetas de estadística y estados vacíos
+════════════════════════════════════════ */
+.stat-icon svg { width: 22px; height: 22px; }
+.stat-card.teal   .stat-icon { color: var(--teal-dark); }
+.stat-card.amber  .stat-icon { color: var(--pending); }
+.stat-card.green  .stat-icon { color: var(--confirmed); }
+.stat-card.purple .stat-icon { color: var(--completed); }
+
+.empty-state-icon { opacity: 1; line-height: 1; margin-bottom: 12px; }
+.empty-state-icon svg { width: 46px; height: 46px; color: var(--teal); opacity: .55; }
+
+/* ════════════════════════════════════════
+   PANEL STAFF — usa el sidebar de admin.css; aquí solo lo propio del módulo
+════════════════════════════════════════ */
+
+/* ── Saludo del dashboard staff ── */
+.staff-greeting { margin-bottom: 22px; }
+.staff-greeting h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: 24px; color: var(--dark); font-weight: 700;
+}
+.staff-greeting p { font-size: 13px; color: var(--muted); margin-top: 3px; text-transform: capitalize; }
+
+/* ── Encabezado de perfil (configuración staff) ── */
+.staff-profile-head {
+  display: flex; align-items: center; gap: 16px;
+  padding-bottom: 22px; margin-bottom: 22px;
+  border-bottom: 1px solid var(--border);
+}
+.staff-profile-avatar {
+  width: 60px; height: 60px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--teal), var(--teal-dark));
+  color: #fff; font-weight: 700; font-size: 24px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.staff-profile-name  { font-size: 16px; font-weight: 700; color: var(--dark); }
+.staff-profile-email { font-size: 13px; color: var(--muted); }
+
+/* ════════════════════════════════════════
+   CALENDARIO MENSUAL
+════════════════════════════════════════ */
+.cal-nav { display: flex; align-items: center; gap: 10px; }
+.cal-title { font-weight: 700; color: var(--dark); min-width: 150px; text-align: center; }
+
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.cal-head { margin-bottom: 6px; }
+.cal-dow {
+  text-align: center; font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  color: var(--muted); text-transform: uppercase; padding: 6px 0;
+}
+.cal-cell {
+  min-height: 96px; border: 1px solid var(--border); border-radius: 10px;
+  padding: 6px; background: var(--white); display: flex; flex-direction: column; gap: 4px;
+}
+.cal-empty { background: transparent; border: none; }
+.cal-today { border-color: var(--teal); box-shadow: 0 0 0 1px var(--teal) inset; }
+.cal-cell-head { display: flex; align-items: center; justify-content: space-between; }
+.cal-daynum { font-size: 12px; font-weight: 700; color: var(--text); }
+.cal-add {
+  width: 20px; height: 20px; border: none; border-radius: 6px; cursor: pointer;
+  background: transparent; color: var(--muted); font-size: 15px; line-height: 1;
+  opacity: 0; transition: all var(--t);
+}
+.cal-cell:hover .cal-add { opacity: 1; }
+.cal-add:hover { background: var(--teal-light); color: var(--teal-dark); }
+
+.cal-chips { display: flex; flex-direction: column; gap: 3px; overflow: hidden; }
+.cal-chip {
+  display: flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 5px;
+  font-size: 11px; font-weight: 600; cursor: default;
+  border-left: 3px solid var(--muted); background: #f3f4f6; color: var(--text);
+  white-space: nowrap; overflow: hidden;
+}
+.cal-chip-time { color: var(--muted); flex-shrink: 0; }
+.cal-chip-name { overflow: hidden; text-overflow: ellipsis; }
+.cal-chip.cal-pending   { border-left-color: var(--pending);   background: rgba(245,158,11,.10); }
+.cal-chip.cal-confirmed { border-left-color: var(--confirmed); background: rgba(16,185,129,.10); }
+.cal-chip.cal-completed { border-left-color: var(--completed); background: rgba(99,102,241,.10); }
+.cal-chip.cal-cancelled { border-left-color: var(--cancelled); background: rgba(239,68,68,.08); opacity: .7; }
+
+.cal-legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; font-size: 12px; color: var(--muted); }
+.cal-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.cal-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.cal-dot.cal-pending   { background: var(--pending); }
+.cal-dot.cal-confirmed { background: var(--confirmed); }
+.cal-dot.cal-completed { background: var(--completed); }
+.cal-dot.cal-cancelled { background: var(--cancelled); }
+
+@media (max-width: 700px) {
+  .cal-cell { min-height: 72px; }
+  .cal-chip-name { display: none; }
+  .cal-dow { font-size: 9px; }
+}
+
+/* ════════════════════════════════════════
+   MODAL/FORM DE CITA (servicios)
+════════════════════════════════════════ */
+.cita-servicios {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  max-height: 200px; overflow-y: auto; padding: 4px;
+  border: 1px solid var(--border); border-radius: 10px;
+}
+.cita-serv {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+  border-radius: 8px; cursor: pointer; font-size: 12.5px; transition: background var(--t);
+}
+.cita-serv:hover { background: #f6f7f9; }
+.cita-serv input { accent-color: var(--teal); }
+.cita-serv span { font-weight: 600; color: var(--dark); }
+.cita-serv em { margin-left: auto; font-style: normal; font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+@media (max-width: 560px) {
+  .cita-servicios { grid-template-columns: 1fr; }
+}

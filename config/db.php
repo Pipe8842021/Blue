@@ -1,4 +1,7 @@
 <?php
+// Zona horaria de Colombia (no observa horario de verano → UTC-5 fijo)
+date_default_timezone_set('America/Bogota');
+
 define('DB_HOST', 'localhost');
 define('DB_USER', 'root');
 define('DB_PASS', '');
@@ -16,6 +19,7 @@ function getDB(): PDO {
         ];
         try {
             $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+            $pdo->exec("SET time_zone = '-05:00'"); // CURDATE()/NOW() en hora de Colombia
         } catch (PDOException $e) {
             http_response_code(500);
             die(json_encode(['error' => 'Error de conexión con la base de datos.']));

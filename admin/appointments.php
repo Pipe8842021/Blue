@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/session.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/h-agenda.php';
 
 requireRole('admin', '/Blue/login.php');
 $db = getDB();
@@ -66,6 +67,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db->prepare("DELETE FROM appointments WHERE id=?")->execute([$id]);
                 setFlash('info', 'Cita eliminada.');
                 break;
+
+            case 'save_cita':
+                $r = guardarCita($db, $_POST, null, (int)currentUser()['id']); // admin: profesional según el formulario
+                setFlash($r['ok'] ? 'success' : 'error', $r['msg']);
+                break;
         }
     } catch (Exception $ex) {
         if ($db->inTransaction()) $db->rollBack();
@@ -108,9 +114,11 @@ $totalPages = max(1, (int)ceil($total / $perPage));
 // Listado
 $sql = "
     SELECT a.id, a.date, a.time_start, a.time_end, a.status, a.notes, a.total_duration,
+           a.client_id, a.staff_id,
            c.name AS client_name, c.phone AS client_phone, c.email AS client_email,
            u.name AS staff_name,
            GROUP_CONCAT(DISTINCT sv.name ORDER BY sv.name SEPARATOR ', ') AS services,
+           GROUP_CONCAT(DISTINCT aps.service_id) AS service_ids,
            COALESCE(SUM(sv.price),0) AS total_price
     FROM appointments a
     JOIN clients c ON a.client_id = c.id
@@ -128,6 +136,10 @@ $rows = $stmt->fetchAll();
 // Staff disponible para asignar
 $staffList = $db->query("SELECT id, name FROM users WHERE active=1 ORDER BY name")->fetchAll();
 
+// Listas para el modal de crear/editar cita
+$clientes  = obtenerClientes($db);
+$servicios = obtenerServiciosActivos($db);
+
 // Query string para conservar filtros tras una acción
 $returnQs = http_build_query(array_filter([
     'status' => $fStatus, 'date' => $fDate, 'q' => $fSearch, 'page' => $page > 1 ? $page : null,
@@ -135,6 +147,8 @@ $returnQs = http_build_query(array_filter([
 
 $pageTitle  = 'Citas';
 $activePage = 'appointments';
+$extraCss   = ['/Blue/assets/css/m-agenda.css?v=' . @filemtime(__DIR__ . '/../assets/css/m-agenda.css')];
+$topbarActions = '<button class="topbar-btn topbar-btn-primary" onclick="openNuevaCita()">+ Nueva cita</button>';
 require_once __DIR__ . '/../includes/admin_layout.php';
 
 function badge(string $status): string {
@@ -188,7 +202,7 @@ function buildUrl(array $overrides): string {
   <div class="card-body--flush">
     <?php if (empty($rows)): ?>
       <div class="empty-state">
-        <div class="empty-state-icon">🔍</div>
+        <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
         <div class="empty-state-title">Sin resultados</div>
         <div class="empty-state-desc">No hay citas que coincidan con los filtros.</div>
       </div>
@@ -268,6 +282,20 @@ function buildUrl(array $overrides): string {
                                   "status"=>$a["status"]
                               ], JSON_HEX_APOS|JSON_HEX_QUOT) ?>)'>Ver detalle</button>
                     <?php endif; ?>
+                    <?php $editData = [
+                        'id' => (int)$a['id'], 'client_id' => (int)$a['client_id'],
+                        'services' => array_map('intval', array_filter(explode(',', (string)$a['service_ids']))),
+                        'date' => $a['date'], 'time_start' => $a['time_start'],
+                        'status' => $a['status'], 'notes' => $a['notes'], 'staff_id' => $a['staff_id'],
+                    ]; ?>
+                    <button class="btn-action" onclick='openEditarCita(<?= json_encode($editData, JSON_HEX_APOS|JSON_HEX_QUOT) ?>)'>Editar</button>
+                    <form method="POST" style="display:inline" onsubmit="return confirm('¿Eliminar esta cita?')">
+                      <input type="hidden" name="action" value="delete">
+                      <input type="hidden" name="id" value="<?= $a['id'] ?>">
+                      <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+                      <input type="hidden" name="return_qs" value="<?= e($returnQs) ?>">
+                      <button type="submit" class="btn-action btn-action-cancel">Eliminar</button>
+                    </form>
                   </div>
                 </td>
               </tr>
@@ -358,4 +386,8 @@ document.querySelectorAll('.modal-overlay').forEach(o => {
 });
 </script>
 
-<?php require_once __DIR__ . '/../includes/admin_footer.php'; ?>
+<?php
+$esAdmin = true;
+require_once __DIR__ . '/../includes/_modal_cita.php';
+require_once __DIR__ . '/../includes/admin_footer.php';
+?>
