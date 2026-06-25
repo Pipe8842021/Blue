@@ -29,5 +29,6 @@ window.addEventListener('resize', () => {
   sidebarToggle.style.display = window.innerWidth <= 768 ? 'flex' : 'none';
 });
 </script>
+<script src="/Blue/assets/js/confirm-modal.js"></script>
 </body>
 </html>

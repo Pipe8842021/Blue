@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config/db.php';
 
 $pageTitle  = 'Dashboard';
 $activePage = 'dashboard';
+$extraCss   = ['/Blue/assets/css/m-agenda.css?v=' . @filemtime(__DIR__ . '/../assets/css/m-agenda.css')];
 
 require_once __DIR__ . '/../includes/admin_layout.php';
 
@@ -65,7 +66,7 @@ function badgeHtml(string $status): string {
 <div class="stats-grid">
 
   <div class="stat-card teal">
-    <div class="stat-icon">📅</div>
+    <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
     <div class="stat-body">
       <div class="stat-value"><?= $stats['today'] ?></div>
       <div class="stat-label">Citas hoy</div>
@@ -74,7 +75,7 @@ function badgeHtml(string $status): string {
   </div>
 
   <div class="stat-card amber">
-    <div class="stat-icon">⏳</div>
+    <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg></div>
     <div class="stat-body">
       <div class="stat-value"><?= $stats['pending'] ?></div>
       <div class="stat-label">Pendientes de confirmar</div>
@@ -87,7 +88,7 @@ function badgeHtml(string $status): string {
   </div>
 
   <div class="stat-card green">
-    <div class="stat-icon">📆</div>
+    <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><path d="M8 15h.01M12 15h.01M16 15h.01"/></svg></div>
     <div class="stat-body">
       <div class="stat-value"><?= $stats['week'] ?></div>
       <div class="stat-label">Esta semana</div>
@@ -96,7 +97,7 @@ function badgeHtml(string $status): string {
   </div>
 
   <div class="stat-card purple">
-    <div class="stat-icon">💰</div>
+    <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
     <div class="stat-body">
       <div class="stat-value" style="font-size:20px"><?= formatPrice($stats['income']) ?></div>
       <div class="stat-label">Ingresos del mes</div>
@@ -119,7 +120,7 @@ function badgeHtml(string $status): string {
   <div class="card-body--flush">
     <?php if (empty($recent)): ?>
       <div class="empty-state">
-        <div class="empty-state-icon">📭</div>
+        <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg></div>
         <div class="empty-state-title">Sin citas aún</div>
         <div class="empty-state-desc">Las solicitudes de reserva aparecerán aquí.</div>
       </div>
