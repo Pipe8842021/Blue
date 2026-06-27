@@ -148,7 +148,10 @@ $returnQs = http_build_query(array_filter([
 $pageTitle  = 'Citas';
 $activePage = 'appointments';
 $extraCss   = ['/Blue/assets/css/m-agenda.css?v=' . @filemtime(__DIR__ . '/../assets/css/m-agenda.css')];
-$topbarActions = '<button class="topbar-btn topbar-btn-primary" onclick="openNuevaCita()">+ Nueva cita</button>';
+$topbarActions = '<a href="/Blue/admin/calendario.php" class="topbar-btn">'
+               . '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>'
+               . '<span class="topbar-btn-text">Calendario</span></a>'
+               . '<button class="topbar-btn topbar-btn-primary" onclick="openNuevaCita()">+ Nueva cita</button>';
 require_once __DIR__ . '/../includes/admin_layout.php';
 
 function badge(string $status): string {
@@ -272,22 +275,23 @@ function buildUrl(array $overrides): string {
                         <button type="submit" class="btn-action btn-action-cancel"
                                 onclick="return confirm('¿Cancelar esta cita?')">Cancelar</button>
                       </form>
-                    <?php else: ?>
-                      <button class="btn-action"
-                              onclick='openDetail(<?= json_encode([
-                                  "client"=>$a["client_name"],"phone"=>$a["client_phone"],"email"=>$a["client_email"],
-                                  "services"=>$a["services"],"date"=>date("d M Y",strtotime($a["date"])),
-                                  "time"=>date("g:i A",strtotime($a["time_start"]))." – ".date("g:i A",strtotime($a["time_end"])),
-                                  "staff"=>$a["staff_name"],"notes"=>$a["notes"],"total"=>formatPrice((float)$a["total_price"]),
-                                  "status"=>$a["status"]
-                              ], JSON_HEX_APOS|JSON_HEX_QUOT) ?>)'>Ver detalle</button>
                     <?php endif; ?>
-                    <?php $editData = [
-                        'id' => (int)$a['id'], 'client_id' => (int)$a['client_id'],
-                        'services' => array_map('intval', array_filter(explode(',', (string)$a['service_ids']))),
-                        'date' => $a['date'], 'time_start' => $a['time_start'],
-                        'status' => $a['status'], 'notes' => $a['notes'], 'staff_id' => $a['staff_id'],
-                    ]; ?>
+                    <?php
+                      $detData = [
+                          "id"=>(int)$a["id"], "client"=>$a["client_name"], "phone"=>$a["client_phone"], "email"=>$a["client_email"],
+                          "services"=>$a["services"], "date"=>date("d M Y",strtotime($a["date"])),
+                          "time"=>date("g:i A",strtotime($a["time_start"]))." – ".date("g:i A",strtotime($a["time_end"])),
+                          "staff"=>$a["staff_name"], "notes"=>$a["notes"], "total"=>formatPrice((float)$a["total_price"]),
+                          "status"=>$a["status"],
+                      ];
+                      $editData = [
+                          'id' => (int)$a['id'], 'client_id' => (int)$a['client_id'],
+                          'services' => array_map('intval', array_filter(explode(',', (string)$a['service_ids']))),
+                          'date' => $a['date'], 'time_start' => $a['time_start'],
+                          'status' => $a['status'], 'notes' => $a['notes'], 'staff_id' => $a['staff_id'],
+                      ];
+                    ?>
+                    <button class="btn-action" onclick='openDetail(<?= json_encode($detData, JSON_HEX_APOS|JSON_HEX_QUOT) ?>)'>Detalle</button>
                     <button class="btn-action" onclick='openEditarCita(<?= json_encode($editData, JSON_HEX_APOS|JSON_HEX_QUOT) ?>)'>Editar</button>
                     <form method="POST" style="display:inline" onsubmit="return confirm('¿Eliminar esta cita?')">
                       <input type="hidden" name="action" value="delete">
@@ -358,6 +362,16 @@ function buildUrl(array $overrides): string {
       <button class="modal-close" onclick="closeModal('detailModal')">&times;</button>
     </div>
     <div class="modal-body" id="detailBody"></div>
+    <div class="modal-footer">
+      <a id="detailWhats" href="#" target="_blank" rel="noopener" class="btn btn-whatsapp">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M17.5 14.4c-.3-.1-1.7-.8-1.9-.9-.3-.1-.5-.1-.6.1-.2.3-.7.9-.8 1-.2.2-.3.2-.6.1-.3-.1-1.2-.5-2.3-1.4-.9-.8-1.4-1.7-1.6-2-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.1.2-.3.2-.4.1-.2 0-.3 0-.5 0-.1-.6-1.5-.8-2-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.2.3-.9.9-.9 2.2s.9 2.5 1.1 2.7c.1.2 1.8 2.8 4.4 3.9.6.3 1.1.4 1.5.5.6.2 1.2.2 1.6.1.5-.1 1.7-.7 1.9-1.3.2-.7.2-1.2.2-1.3-.1-.2-.3-.2-.6-.4zM12 2a10 10 0 00-8.5 15.3L2 22l4.8-1.3A10 10 0 1012 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-2.9.8.8-2.8-.2-.3A8.2 8.2 0 1112 20.2z"/></svg>
+        WhatsApp
+      </a>
+      <a id="detailPrint" href="#" target="_blank" rel="noopener" class="btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Imprimir
+      </a>
+    </div>
   </div>
 </div>
 
@@ -371,6 +385,11 @@ function openConfirm(data){
   openModal('confirmModal');
 }
 
+function telWhatsapp(phone){
+  let n = (phone || '').replace(/\D/g, '');
+  if (n.length === 10) n = '57' + n;   // celular Colombia sin indicativo
+  return n;
+}
 function openDetail(d){
   const row = (l,v) => v ? `<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0f1f3;font-size:13px"><span style="color:#9ca3af">${l}</span><span style="font-weight:600;text-align:right">${v}</span></div>` : '';
   document.getElementById('detailBody').innerHTML =
@@ -378,6 +397,16 @@ function openDetail(d){
     row('Servicios', d.services) + row('Fecha', d.date) + row('Horario', d.time) +
     row('Profesional', d.staff || 'Sin asignar') + row('Total', d.total) +
     (d.notes ? `<div style="margin-top:14px"><div style="color:#9ca3af;font-size:12px;margin-bottom:4px">Notas</div><div style="font-size:13px">${d.notes}</div></div>` : '');
+
+  // Recordatorio por WhatsApp (mensaje prellenado)
+  const msg = `Hola ${d.client}, te recordamos tu cita en *Blue Therapy*:\n`
+            + `Fecha: ${d.date}\nHora: ${d.time}\nServicio: ${d.services || ''}\n\n¡Te esperamos!`;
+  const wa = document.getElementById('detailWhats');
+  const tel = telWhatsapp(d.phone);
+  if (tel) { wa.href = 'https://wa.me/' + tel + '?text=' + encodeURIComponent(msg); wa.style.display = ''; }
+  else { wa.style.display = 'none'; }
+  document.getElementById('detailPrint').href = '/Blue/admin/imprimir_cita.php?id=' + d.id;
+
   openModal('detailModal');
 }
 

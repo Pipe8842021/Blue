@@ -161,10 +161,11 @@ function citasDelMes(PDO $db, ?int $staffId, int $year, int $month): array {
 
     $sql = "
         SELECT a.id, a.date, a.time_start, a.status,
-               c.name AS client_name,
+               c.name AS client_name, u.name AS staff_name,
                GROUP_CONCAT(DISTINCT sv.name ORDER BY sv.name SEPARATOR ', ') AS services
         FROM appointments a
         JOIN clients c ON a.client_id = c.id
+        LEFT JOIN users u ON a.staff_id = u.id
         LEFT JOIN appointment_services aps ON aps.appointment_id = a.id
         LEFT JOIN services sv ON sv.id = aps.service_id
         WHERE a.date BETWEEN ? AND ? $cond
