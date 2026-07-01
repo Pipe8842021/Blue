@@ -95,23 +95,77 @@ $pageTitle  = 'Configuración';
 $activePage = 'settings';
 $extraCss   = ['/Blue/assets/css/m-finanzas.css'];
 require_once __DIR__ . '/../includes/admin_layout.php';
+
+// ── Categorías de configuración (agregar aquí para escalar el módulo) ──
+$sections = [
+    'profile' => [
+        'label'    => 'Mi cuenta',
+        'desc'     => 'Nombre, correo y teléfono',
+        'icon'     => '<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
+        'critical' => false,
+    ],
+    'security' => [
+        'label'    => 'Seguridad',
+        'desc'     => 'Contraseña de acceso',
+        'icon'     => '<rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/>',
+        'critical' => true,
+    ],
+    'team' => [
+        'label'    => 'Equipo',
+        'desc'     => 'Usuarios y roles del panel',
+        'icon'     => '<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>',
+        'critical' => false,
+    ],
+];
+if (!isset($sections[$tab])) { $tab = 'profile'; }
 ?>
 
 <div class="page-head">
   <div>
     <h2>Configuración</h2>
-    <p>Gestiona tu cuenta y el equipo</p>
+    <p>Gestiona tu cuenta, la seguridad del acceso y el equipo del panel</p>
   </div>
 </div>
 
-<div class="tabs">
-  <button class="tab <?= $tab==='profile'?'active':'' ?>"  onclick="location='?tab=profile'">Mi perfil</button>
-  <button class="tab <?= $tab==='security'?'active':'' ?>" onclick="location='?tab=security'">Seguridad</button>
-  <button class="tab <?= $tab==='team'?'active':'' ?>"     onclick="location='?tab=team'">Equipo</button>
-</div>
+<div class="settings-shell">
 
-<!-- ══════ PERFIL ══════ -->
+  <!-- ══════ NAV DE CATEGORÍAS ══════ -->
+  <nav class="settings-nav" aria-label="Categorías de configuración">
+    <div class="settings-search-wrap">
+      <input type="search" class="settings-search" id="settingsSearch"
+             placeholder="Buscar configuración…" aria-label="Buscar configuración">
+    </div>
+    <?php foreach ($sections as $key => $s): ?>
+      <a href="?tab=<?= $key ?>"
+         class="settings-nav-item <?= $tab === $key ? 'active' : '' ?>"
+         data-search="<?= e(mb_strtolower($s['label'] . ' ' . $s['desc'])) ?>">
+        <span class="settings-nav-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><?= $s['icon'] ?></svg>
+        </span>
+        <span class="settings-nav-text">
+          <span class="settings-nav-label">
+            <?= e($s['label']) ?>
+            <?php if ($s['critical']): ?><span class="settings-nav-critical-dot" title="Configuración sensible"></span><?php endif; ?>
+          </span>
+          <span class="settings-nav-desc"><?= e($s['desc']) ?></span>
+        </span>
+      </a>
+    <?php endforeach; ?>
+    <p class="settings-nav-empty" id="settingsNavEmpty" hidden>Sin resultados</p>
+  </nav>
+
+  <!-- ══════ CONTENIDO ══════ -->
+  <div class="settings-content">
+
+<!-- ══════ MI CUENTA ══════ -->
 <?php if ($tab === 'profile'): ?>
+  <div class="settings-panel-head">
+    <div>
+      <h3>Mi cuenta</h3>
+      <p>Esta información aparece en el panel y en las citas que gestionas</p>
+    </div>
+    <span class="settings-unsaved-pill" id="unsaved-profile">Cambios sin guardar</span>
+  </div>
   <div class="card"><div class="card-body">
     <div class="profile-header">
       <div class="profile-avatar-lg"><?= mb_strtoupper(mb_substr($profile['name'], 0, 1)) ?></div>
@@ -120,12 +174,28 @@ require_once __DIR__ . '/../includes/admin_layout.php';
         <div class="profile-email"><?= e($profile['email']) ?></div>
       </div>
     </div>
-    <form method="POST" style="max-width:520px">
+    <form method="POST" class="js-settings-form" data-pill="unsaved-profile" style="max-width:520px">
       <div class="form-grid">
-        <div class="form-field full"><label>Nombre</label><input type="text" name="name" class="form-control" value="<?= e($profile['name']) ?>" required></div>
-        <div class="form-field"><label>Correo</label><input type="email" name="email" class="form-control" value="<?= e($profile['email']) ?>" required></div>
-        <div class="form-field"><label>Teléfono</label><input type="tel" name="phone" class="form-control" value="<?= e($profile['phone'] ?? '') ?>"></div>
-        <div class="form-field full"><label>Rol</label><input type="text" class="form-control" value="<?= e(ucfirst($profile['role'])) ?>" disabled></div>
+        <div class="form-field full">
+          <label for="prof_name">Nombre</label>
+          <input type="text" id="prof_name" name="name" class="form-control" value="<?= e($profile['name']) ?>" required>
+          <span class="form-hint">Como aparecerá en el panel y en las citas asignadas.</span>
+        </div>
+        <div class="form-field">
+          <label for="prof_email">Correo</label>
+          <input type="email" id="prof_email" name="email" class="form-control" value="<?= e($profile['email']) ?>" required>
+          <span class="form-hint">Se usa para iniciar sesión.</span>
+          <span class="field-feedback error" id="prof_email_err" hidden>Ingresa un correo válido.</span>
+        </div>
+        <div class="form-field">
+          <label for="prof_phone">Teléfono</label>
+          <input type="tel" id="prof_phone" name="phone" class="form-control" value="<?= e($profile['phone'] ?? '') ?>">
+          <span class="form-hint">Opcional, para contacto por WhatsApp.</span>
+        </div>
+        <div class="form-field full">
+          <span class="form-hint" style="display:block;margin-bottom:6px">Rol asignado</span>
+          <span class="pill settings-role-pill"><?= e(ucfirst($profile['role'])) ?></span>
+        </div>
       </div>
       <input type="hidden" name="action" value="profile">
       <input type="hidden" name="tab" value="profile">
@@ -137,18 +207,33 @@ require_once __DIR__ . '/../includes/admin_layout.php';
 
 <!-- ══════ SEGURIDAD ══════ -->
 <?php if ($tab === 'security'): ?>
+  <div class="settings-panel-head">
+    <div>
+      <h3>Seguridad</h3>
+      <p>Actualiza la contraseña con la que accedes al panel</p>
+    </div>
+    <span class="settings-unsaved-pill" id="unsaved-security">Cambios sin guardar</span>
+  </div>
   <div class="card"><div class="card-body">
-    <form method="POST" style="max-width:440px">
-      <div class="form-field full" style="margin-bottom:14px"><label>Contraseña actual</label><input type="password" name="current" class="form-control" required></div>
+    <form method="POST" class="js-settings-form" data-pill="unsaved-security" id="securityForm" style="max-width:440px">
       <div class="form-field full" style="margin-bottom:14px">
-        <label>Nueva contraseña</label>
+        <label for="cur_password">Contraseña actual</label>
+        <input type="password" id="cur_password" name="current" class="form-control" required>
+      </div>
+      <div class="form-field full" style="margin-bottom:14px">
+        <label for="new-password">Nueva contraseña</label>
         <input type="password" name="new" id="new-password" class="form-control" minlength="6" required>
+        <span class="form-hint">Mínimo 6 caracteres; combina letras, números y símbolos.</span>
         <div class="strength-wrap">
           <div class="strength-bar"><div class="strength-fill" id="strength-fill"></div></div>
           <span class="strength-label" id="strength-label"></span>
         </div>
       </div>
-      <div class="form-field full"><label>Repetir nueva contraseña</label><input type="password" name="repeat" class="form-control" minlength="6" required></div>
+      <div class="form-field full">
+        <label for="rep_password">Repetir nueva contraseña</label>
+        <input type="password" id="rep_password" name="repeat" class="form-control" minlength="6" required>
+        <span class="field-feedback" id="rep_password_fb"></span>
+      </div>
       <input type="hidden" name="action" value="password">
       <input type="hidden" name="tab" value="security">
       <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
@@ -159,7 +244,11 @@ require_once __DIR__ . '/../includes/admin_layout.php';
 
 <!-- ══════ EQUIPO ══════ -->
 <?php if ($tab === 'team'): ?>
-  <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+  <div class="settings-panel-head">
+    <div>
+      <h3>Equipo</h3>
+      <p>Usuarios con acceso al panel y sus roles</p>
+    </div>
     <button class="btn btn-primary" onclick="newStaff()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Nuevo usuario
@@ -266,6 +355,9 @@ require_once __DIR__ . '/../includes/admin_layout.php';
   </script>
 <?php endif; ?>
 
+  </div><!-- /.settings-content -->
+</div><!-- /.settings-shell -->
+
 <script>
 // ── Fortaleza de contraseña ───────────────────────────────
 (function () {
@@ -296,6 +388,70 @@ require_once __DIR__ . '/../includes/admin_layout.php';
     fill.style.backgroundColor = lvl.color;
     label.textContent          = lvl.text;
     label.style.color          = lvl.color;
+  });
+}());
+
+// ── Buscador de categorías de configuración ───────────────
+(function () {
+  const input = document.getElementById('settingsSearch');
+  const empty = document.getElementById('settingsNavEmpty');
+  if (!input) return;
+  const items = document.querySelectorAll('.settings-nav-item');
+  input.addEventListener('input', function () {
+    const q = this.value.trim().toLowerCase();
+    let visible = 0;
+    items.forEach(el => {
+      const match = !q || el.dataset.search.includes(q);
+      el.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+    empty.hidden = visible !== 0;
+  });
+}());
+
+// ── Indicador de cambios sin guardar ──────────────────────
+document.querySelectorAll('.js-settings-form').forEach(function (form) {
+  const pill = document.getElementById(form.dataset.pill);
+  if (!pill) return;
+  form.addEventListener('input', () => pill.classList.add('show'));
+  form.addEventListener('submit', () => pill.classList.remove('show'));
+});
+
+// ── Validación en vivo — correo de perfil ─────────────────
+(function () {
+  const email = document.getElementById('prof_email');
+  const err   = document.getElementById('prof_email_err');
+  if (!email) return;
+  email.addEventListener('input', function () {
+    const valid = email.checkValidity();
+    email.classList.toggle('is-invalid', !valid && email.value !== '');
+    err.hidden = valid || email.value === '';
+  });
+}());
+
+// ── Validación en vivo — coincidencia de contraseñas ──────
+(function () {
+  const pass = document.getElementById('new-password');
+  const rep  = document.getElementById('rep_password');
+  const fb   = document.getElementById('rep_password_fb');
+  const form = document.getElementById('securityForm');
+  if (!pass || !rep) return;
+
+  function check() {
+    if (rep.value === '') {
+      fb.textContent = ''; fb.className = 'field-feedback'; rep.classList.remove('is-invalid');
+      return true;
+    }
+    const match = rep.value === pass.value;
+    fb.textContent = match ? 'Coinciden' : 'Las contraseñas no coinciden';
+    fb.className   = 'field-feedback ' + (match ? 'ok' : 'error');
+    rep.classList.toggle('is-invalid', !match);
+    return match;
+  }
+  rep.addEventListener('input', check);
+  pass.addEventListener('input', check);
+  form.addEventListener('submit', function (e) {
+    if (!check()) e.preventDefault();
   });
 }());
 </script>
