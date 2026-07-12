@@ -3,6 +3,11 @@ require_once __DIR__ . '/includes/session.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/functions.php';
 
+// Cabeceras de seguridad — página de login, sin razón para ser embebida en un iframe.
+header('X-Frame-Options: DENY');
+header('X-Content-Type-Options: nosniff');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+
 if (isLoggedIn()) {
     header('Location: /Blue/' . (hasRole('admin') ? 'admin/' : 'staff/'));
     exit;
@@ -11,18 +16,42 @@ if (isLoggedIn()) {
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email    = trim($_POST['email']    ?? '');
-    $password = trim($_POST['password'] ?? '');
+    if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
+        $error = 'Token de seguridad inválido. Recarga la página e intenta de nuevo.';
 
-    if (!$email || !$password) {
-        $error = 'Por favor, completa todos los campos.';
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $error = 'El correo electrónico no es válido.';
-    } elseif (login($email, $password)) {
-        header('Location: /Blue/' . (hasRole('admin') ? 'admin/' : 'staff/'));
-        exit;
+    } elseif (!empty($_SESSION['login_locked_until']) && time() < $_SESSION['login_locked_until']) {
+        $error = 'Demasiados intentos fallidos. Espera ' . ($_SESSION['login_locked_until'] - time()) . ' segundos e intenta de nuevo.';
+
     } else {
-        $error = 'Correo o contraseña incorrectos.';
+        $email    = trim($_POST['email']    ?? '');
+        $password = trim($_POST['password'] ?? '');
+
+        if (!$email || !$password) {
+            $error = 'Por favor, completa todos los campos.';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $error = 'El correo electrónico no es válido.';
+        } elseif (login($email, $password)) {
+            unset($_SESSION['login_attempts'], $_SESSION['login_locked_until']);
+
+            // Credenciales de demostración: forzar cambio de contraseña antes de continuar.
+            if ($email === 'admin@blue.com' && $password === 'admin123' && hasRole('admin')) {
+                setFlash('error', 'Estás usando la contraseña de demostración. Por seguridad, cámbiala ahora antes de continuar.');
+                header('Location: /Blue/admin/settings.php?tab=security');
+                exit;
+            }
+            header('Location: /Blue/' . (hasRole('admin') ? 'admin/' : 'staff/'));
+            exit;
+        } else {
+            // Bloqueo temporal tras 5 intentos fallidos (mitiga fuerza bruta).
+            $_SESSION['login_attempts'] = ($_SESSION['login_attempts'] ?? 0) + 1;
+            if ($_SESSION['login_attempts'] >= 5) {
+                $_SESSION['login_locked_until'] = time() + 60;
+                $_SESSION['login_attempts']     = 0;
+                $error = 'Demasiados intentos fallidos. Espera 60 segundos e intenta de nuevo.';
+            } else {
+                $error = 'Correo o contraseña incorrectos.';
+            }
+        }
     }
 }
 ?>

@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
+// Sin CORS: este endpoint solo lo consume booking.js del mismo origen.
+// Exponerlo con "*" permitía leer la agenda de ocupación desde cualquier sitio externo.
 
 require_once __DIR__ . '/../config/db.php';
 

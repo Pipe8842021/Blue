@@ -77,7 +77,17 @@ function obtenerStaffActivo(PDO $db): array {
  * Devuelve ['ok'=>bool, 'msg'=>string].
  */
 function guardarCita(PDO $db, array $in, ?int $forcedStaffId, int $actorId): array {
-    $id       = (int)($in['id'] ?? 0);
+    $id = (int)($in['id'] ?? 0);
+
+    // Un profesional (panel staff) solo puede editar sus propias citas.
+    if ($id > 0 && $forcedStaffId !== null) {
+        $own = $db->prepare("SELECT COUNT(*) FROM appointments WHERE id=? AND staff_id=?");
+        $own->execute([$id, $forcedStaffId]);
+        if (!$own->fetchColumn()) {
+            return ['ok' => false, 'msg' => 'No tienes permiso para editar esta cita.'];
+        }
+    }
+
     $services = array_values(array_unique(array_map('intval', (array)($in['services'] ?? []))));
     $services = array_filter($services, fn($v) => $v > 0);
 

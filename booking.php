@@ -3,6 +3,11 @@ require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/includes/session.php';
 require_once __DIR__ . '/includes/functions.php';
 
+// Cabeceras de seguridad
+header('X-Frame-Options: DENY');
+header('X-Content-Type-Options: nosniff');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+
 // Cargar servicios agrupados por categoría
 try {
     $db = getDB();

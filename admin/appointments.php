@@ -390,13 +390,16 @@ function telWhatsapp(phone){
   if (n.length === 10) n = '57' + n;   // celular Colombia sin indicativo
   return n;
 }
+function escHtml(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 function openDetail(d){
-  const row = (l,v) => v ? `<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0f1f3;font-size:13px"><span style="color:#9ca3af">${l}</span><span style="font-weight:600;text-align:right">${v}</span></div>` : '';
+  const row = (l,v) => v ? `<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0f1f3;font-size:13px"><span style="color:#9ca3af">${l}</span><span style="font-weight:600;text-align:right">${escHtml(v)}</span></div>` : '';
   document.getElementById('detailBody').innerHTML =
     row('Cliente', d.client) + row('Teléfono', d.phone) + row('Email', d.email) +
     row('Servicios', d.services) + row('Fecha', d.date) + row('Horario', d.time) +
     row('Profesional', d.staff || 'Sin asignar') + row('Total', d.total) +
-    (d.notes ? `<div style="margin-top:14px"><div style="color:#9ca3af;font-size:12px;margin-bottom:4px">Notas</div><div style="font-size:13px">${d.notes}</div></div>` : '');
+    (d.notes ? `<div style="margin-top:14px"><div style="color:#9ca3af;font-size:12px;margin-bottom:4px">Notas</div><div style="font-size:13px">${escHtml(d.notes)}</div></div>` : '');
 
   // Recordatorio por WhatsApp (mensaje prellenado)
   const msg = `Hola ${d.client}, te recordamos tu cita en *Blue Therapy*:\n`
