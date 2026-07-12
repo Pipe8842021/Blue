@@ -4,8 +4,11 @@
 # Imágenes subidas por usuarios (la carpeta se conserva con .gitkeep)
 assets/img/gallery/*
 !assets/img/gallery/.gitkeep
+assets/img/servicios/*
+!assets/img/servicios/.gitkeep
 
 # Archivos del sistema / editor
+.claude/
 Thumbs.db
 .DS_Store
 *.log
