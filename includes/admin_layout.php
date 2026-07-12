@@ -43,7 +43,7 @@ try {
   <title><?= e($pageTitle) ?> — Blue Therapy Admin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="/Blue/assets/css/admin.css">
+  <link rel="stylesheet" href="/Blue/assets/css/admin.css?v=<?= @filemtime(__DIR__ . '/../assets/css/admin.css') ?>">
   <?php foreach ($extraCss as $css): ?>
   <link rel="stylesheet" href="<?= e($css) ?>">
   <?php endforeach; ?>
