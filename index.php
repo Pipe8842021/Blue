@@ -1,4 +1,30 @@
 <?php
+require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/includes/functions.php';
+
+// Servicios destacados y categorías reales (si la BD falla, la home sigue viva)
+$destacados = [];
+$categorias = [];
+try {
+    $db = getDB();
+    $destacados = $db->query("
+        SELECT s.name, s.description, s.image, s.duration_min, s.price, c.name AS category_name
+        FROM services s JOIN categories c ON c.id = s.category_id
+        WHERE s.active = 1 AND s.featured = 1
+        ORDER BY c.name, s.name
+        LIMIT 6")->fetchAll();
+
+    $categorias = $db->query("
+        SELECT c.name, COUNT(s.id) AS n
+        FROM categories c LEFT JOIN services s ON s.category_id = c.id AND s.active = 1
+        GROUP BY c.id, c.name
+        HAVING n > 0
+        ORDER BY n DESC, c.name
+        LIMIT 4")->fetchAll();
+} catch (Throwable $e) {
+    // Sin datos no se rompe la página pública: las secciones simplemente no se pintan
+}
+
 // Cargar imágenes de la galería desde carpeta
 $gallery_dir    = __DIR__ . '/assets/img/gallery/';
 $gallery_images = [];
@@ -213,6 +239,59 @@ nav {
   transition: border-color .2s, color .2s;
 }
 .btn-link:hover { border-color: var(--teal); color: var(--teal); }
+.service-icon svg { width: 30px; height: 30px; color: var(--teal); }
+
+/* Servicios destacados (vienen del panel: services.featured) */
+.featured-head { margin: 56px auto 26px; }
+.featured-head h3 {
+  font-family: 'Playfair Display', serif; font-size: clamp(24px, 3vw, 32px);
+  font-weight: 600; color: var(--dark); margin-bottom: 6px;
+}
+.featured-head p { font-size: 14px; color: var(--muted); }
+.featured-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px;
+  max-width: 1100px; margin: 0 auto 44px; text-align: left;
+}
+.featured-card {
+  background: #fff; border-radius: 18px; overflow: hidden;
+  border: 1px solid #eee; display: flex; flex-direction: column;
+  transition: box-shadow .25s, transform .25s;
+}
+.featured-card:hover { box-shadow: 0 14px 40px rgba(0,0,0,.09); transform: translateY(-4px); }
+.featured-img {
+  position: relative; aspect-ratio: 16/10;
+  background: linear-gradient(135deg, #d4f0ec, #8ecfc8);
+}
+.featured-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.featured-tag {
+  position: absolute; top: 12px; left: 12px;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 11px; border-radius: 50px;
+  background: rgba(255,255,255,.94); color: var(--gold);
+  font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  box-shadow: 0 2px 10px rgba(0,0,0,.08);
+}
+.featured-tag svg { width: 11px; height: 11px; }
+.featured-body { padding: 20px 22px 22px; display: flex; flex-direction: column; flex: 1; }
+.featured-cat {
+  font-size: 11px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--teal); margin-bottom: 7px;
+}
+.featured-body h4 {
+  font-family: 'Playfair Display', serif; font-size: 19px;
+  font-weight: 600; color: var(--dark); margin-bottom: 7px;
+}
+.featured-body p {
+  font-size: 13.5px; color: var(--muted); line-height: 1.6; margin-bottom: 16px;
+}
+.featured-foot {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 10px; margin-top: auto; padding-top: 14px; border-top: 1px solid #f0f0f0;
+}
+.featured-price { font-size: 17px; font-weight: 700; color: var(--dark); }
+.featured-dur { font-size: 12.5px; color: var(--muted); }
+@media (max-width: 900px) { .featured-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px) { .featured-grid { grid-template-columns: 1fr; } }
 
 /* ────────────────────────────────────────
    CTA BANNER
@@ -466,30 +545,55 @@ footer { background: var(--dark); color: rgba(255,255,255,0.7); padding: 60px 40
   <h2 class="section-title">Tratamientos para tu <span class="accent">bienestar</span></h2>
   <p class="section-sub">Explora nuestra gama de servicios diseñados para rejuvenecer tu cuerpo y mente.</p>
 
-  <div class="services-grid">
-    <div class="service-card">
-      <div class="service-icon">✨</div>
-      <div class="service-name">Tratamientos Faciales</div>
-      <div class="service-count">12 servicios</div>
+  <?php if ($categorias): ?>
+    <div class="services-grid">
+      <?php foreach ($categorias as $cat): ?>
+        <div class="service-card">
+          <div class="service-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 3l1.9 4.6 4.6 1.9-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3z"/><path d="M18 15l.8 1.9 1.9.8-1.9.8L18 21l-.8-1.5-1.9-.8 1.9-.8L18 15z"/></svg>
+          </div>
+          <div class="service-name"><?= htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8') ?></div>
+          <div class="service-count"><?= (int)$cat['n'] ?> servicio<?= (int)$cat['n'] === 1 ? '' : 's' ?></div>
+        </div>
+      <?php endforeach; ?>
     </div>
-    <div class="service-card">
-      <div class="service-icon">🌸</div>
-      <div class="service-name">Tratamiento Spa</div>
-      <div class="service-count">3 servicios</div>
-    </div>
-    <div class="service-card">
-      <div class="service-icon">⚡</div>
-      <div class="service-name">Depilación Láser Diodo</div>
-      <div class="service-count">1 servicio</div>
-    </div>
-    <div class="service-card">
-      <div class="service-icon">🔬</div>
-      <div class="service-name">Terapias Biológicas</div>
-      <div class="service-count">2 servicios</div>
-    </div>
-  </div>
+  <?php endif; ?>
 
-  <a href="#servicios" class="btn-link">
+  <?php if ($destacados): ?>
+    <div class="featured-head">
+      <h3>Los más pedidos</h3>
+      <p>Nuestros tratamientos destacados</p>
+    </div>
+
+    <div class="featured-grid">
+      <?php foreach ($destacados as $s): ?>
+        <article class="featured-card">
+          <div class="featured-img">
+            <?php if (!empty($s['image'])): ?>
+              <img src="/Blue/assets/img/servicios/<?= rawurlencode(basename($s['image'])) ?>" alt="<?= htmlspecialchars($s['name'], ENT_QUOTES, 'UTF-8') ?>" loading="lazy">
+            <?php endif; ?>
+            <span class="featured-tag">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.1 6.6.9-4.8 4.7 1.2 6.7L12 17.2 6.1 20.4l1.2-6.7L2.5 9l6.6-.9z"/></svg>
+              Destacado
+            </span>
+          </div>
+          <div class="featured-body">
+            <div class="featured-cat"><?= htmlspecialchars($s['category_name'], ENT_QUOTES, 'UTF-8') ?></div>
+            <h4><?= htmlspecialchars($s['name'], ENT_QUOTES, 'UTF-8') ?></h4>
+            <?php if (!empty($s['description'])): ?>
+              <p><?= htmlspecialchars($s['description'], ENT_QUOTES, 'UTF-8') ?></p>
+            <?php endif; ?>
+            <div class="featured-foot">
+              <span class="featured-price"><?= formatPrice((float)$s['price']) ?></span>
+              <span class="featured-dur"><?= (int)$s['duration_min'] ?> min</span>
+            </div>
+          </div>
+        </article>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
+
+  <a href="/Blue/booking.php" class="btn-link">
     Ver Todos los Servicios
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
   </a>

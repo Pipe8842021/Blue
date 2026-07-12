@@ -12,12 +12,12 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
 try {
     $db = getDB();
     $rows = $db->query(
-        'SELECT s.id, s.name, s.description, s.duration_min, s.price,
+        'SELECT s.id, s.name, s.description, s.duration_min, s.price, s.image, s.featured,
                 c.id AS cat_id, c.name AS cat_name, c.icon AS cat_icon
          FROM services s
          JOIN categories c ON s.category_id = c.id
          WHERE s.active = 1 AND c.active = 1
-         ORDER BY c.id, s.id'
+         ORDER BY c.id, s.featured DESC, s.id'
     )->fetchAll();
 
     $categories = [];
@@ -40,7 +40,7 @@ $catIcons = ['body'=>'🫀','face'=>'✨','laser'=>'💫','spa'=>'🌿','therapy
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/Blue/assets/css/booking.css">
+  <link rel="stylesheet" href="/Blue/assets/css/booking.css?v=<?= @filemtime(__DIR__ . '/assets/css/booking.css') ?>">
   <meta name="csrf-token" content="<?= e(csrfToken()) ?>">
 </head>
 <body class="booking-page">
@@ -143,9 +143,22 @@ $catIcons = ['body'=>'🫀','face'=>'✨','laser'=>'💫','spa'=>'🌿','therapy
                        data-cat-icon="<?= htmlspecialchars($cat['icon']) ?>">
                   <input type="checkbox" name="services[]" value="<?= $svc['id'] ?>">
                   <div class="service-card-visual">
+                    <?php if (!empty($svc['image'])): ?>
+                      <img class="service-card-photo"
+                           src="/Blue/assets/img/servicios/<?= rawurlencode(basename($svc['image'])) ?>"
+                           alt="<?= htmlspecialchars($svc['name']) ?>" loading="lazy">
+                    <?php endif; ?>
+                    <?php if ((int)$svc['featured'] === 1): ?>
+                      <span class="service-card-featured">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.1 6.6.9-4.8 4.7 1.2 6.7L12 17.2 6.1 20.4l1.2-6.7L2.5 9l6.6-.9z"/></svg>
+                        Destacado
+                      </span>
+                    <?php endif; ?>
                     <span class="service-card-duration"><?= $durStr ?></span>
                     <div class="service-card-checkmark">✓</div>
-                    <div class="service-card-photo-label">foto · <?= htmlspecialchars(strtolower($cat['name'])) ?></div>
+                    <?php if (empty($svc['image'])): ?>
+                      <div class="service-card-photo-label">foto · <?= htmlspecialchars(strtolower($cat['name'])) ?></div>
+                    <?php endif; ?>
                   </div>
                   <div class="service-card-info">
                     <div class="service-card-name"><?= htmlspecialchars($svc['name']) ?></div>

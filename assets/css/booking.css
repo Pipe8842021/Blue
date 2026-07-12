@@ -487,6 +487,43 @@
   overflow: hidden;
   background: linear-gradient(145deg, #9de4db 0%, #c8f7f2 60%, #e4faf8 100%);
 }
+
+/* Foto real del servicio (se sube desde el panel: services.image).
+   Va por encima del degradado y de la trama diagonal. */
+.service-card-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 1;
+}
+
+/* Badge de servicio destacado (services.featured).
+   Va abajo a la izquierda: arriba están la duración y el check. */
+.service-card-featured {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 50px;
+  background: rgba(255, 255, 255, .94);
+  color: #c9a84c;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .1);
+}
+.service-card-featured svg { width: 10px; height: 10px; }
+
+/* La duración y el check deben quedar por encima de la foto */
+.service-card-visual .service-card-duration,
+.service-card-visual .service-card-checkmark { z-index: 2; }
 .service-option[data-cat-icon="body"] .service-card-visual {
   background: linear-gradient(145deg, #5ec6bc 0%, #90ddd7 45%, #c5f2ee 100%);
 }
