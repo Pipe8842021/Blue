@@ -9,6 +9,10 @@
      antes de incluir includes/admin_layout.php
    ============================================================ */
 
+/* El menú de acciones por fila (.rowmenu) es ahora un componente compartido:
+   vive en admin.css junto a .btn-action, y su JS en assets/js/row-menu.js.
+   Lo usan Citas, Clientes y Servicios. */
+
 /* Botón de WhatsApp (verde) */
 .btn-whatsapp { background: #25d366; border-color: #25d366; color: #fff; }
 .btn-whatsapp:hover { background: #1da851; border-color: #1da851; color: #fff; }
