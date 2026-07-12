@@ -244,62 +244,61 @@ function buildUrl(array $overrides): string {
                 <td style="font-weight:600"><?= formatPrice((float)$a['total_price']) ?></td>
                 <td><?= badge($a['status']) ?></td>
                 <td>
-                  <div class="action-btns">
-                    <?php if ($a['status'] === 'pending'): ?>
-                      <button class="btn-action btn-action-confirm"
-                              onclick='openConfirm(<?= json_encode(["id"=>$a["id"],"client"=>$a["client_name"]]) ?>)'>
-                        Confirmar
-                      </button>
-                      <form method="POST" style="display:inline">
-                        <input type="hidden" name="action" value="cancel">
-                        <input type="hidden" name="id" value="<?= $a['id'] ?>">
-                        <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
-                        <input type="hidden" name="return_qs" value="<?= e($returnQs) ?>">
-                        <button type="submit" class="btn-action btn-action-cancel"
-                                onclick="return confirm('¿Cancelar esta cita?')">Cancelar</button>
+                  <?php
+                    $detData = [
+                        "id"=>(int)$a["id"], "client"=>$a["client_name"], "phone"=>$a["client_phone"], "email"=>$a["client_email"],
+                        "services"=>$a["services"], "date"=>date("d M Y",strtotime($a["date"])),
+                        "time"=>date("g:i A",strtotime($a["time_start"]))." – ".date("g:i A",strtotime($a["time_end"])),
+                        "staff"=>$a["staff_name"], "notes"=>$a["notes"], "total"=>formatPrice((float)$a["total_price"]),
+                        "status"=>$a["status"],
+                    ];
+                    $editData = [
+                        'id' => (int)$a['id'], 'client_id' => (int)$a['client_id'],
+                        'services' => array_map('intval', array_filter(explode(',', (string)$a['service_ids']))),
+                        'date' => $a['date'], 'time_start' => $a['time_start'],
+                        'status' => $a['status'], 'notes' => $a['notes'], 'staff_id' => $a['staff_id'],
+                    ];
+                  ?>
+                  <div class="rowmenu">
+                    <button type="button" class="rowmenu-trigger" aria-label="Acciones">
+                      <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
+                    </button>
+                    <div class="rowmenu-panel">
+                      <?php if ($a['status'] === 'pending'): ?>
+                        <button class="rowmenu-item primary" onclick='openConfirm(<?= json_encode(["id"=>$a["id"],"client"=>$a["client_name"]]) ?>)'>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Confirmar</button>
+                        <form method="POST">
+                          <input type="hidden" name="action" value="cancel"><input type="hidden" name="id" value="<?= $a['id'] ?>">
+                          <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>"><input type="hidden" name="return_qs" value="<?= e($returnQs) ?>">
+                          <button type="submit" class="rowmenu-item danger" onclick="return confirm('¿Cancelar esta cita?')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Cancelar</button>
+                        </form>
+                      <?php elseif ($a['status'] === 'confirmed'): ?>
+                        <form method="POST">
+                          <input type="hidden" name="action" value="complete"><input type="hidden" name="id" value="<?= $a['id'] ?>">
+                          <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>"><input type="hidden" name="return_qs" value="<?= e($returnQs) ?>">
+                          <button type="submit" class="rowmenu-item primary" onclick="return confirm('¿Marcar como completada? Se registrará el ingreso.')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Completar</button>
+                        </form>
+                        <form method="POST">
+                          <input type="hidden" name="action" value="cancel"><input type="hidden" name="id" value="<?= $a['id'] ?>">
+                          <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>"><input type="hidden" name="return_qs" value="<?= e($returnQs) ?>">
+                          <button type="submit" class="rowmenu-item danger" onclick="return confirm('¿Cancelar esta cita?')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Cancelar</button>
+                        </form>
+                      <?php endif; ?>
+                      <button class="rowmenu-item" onclick='openDetail(<?= json_encode($detData, JSON_HEX_APOS|JSON_HEX_QUOT) ?>)'>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>Detalle</button>
+                      <button class="rowmenu-item" onclick='openEditarCita(<?= json_encode($editData, JSON_HEX_APOS|JSON_HEX_QUOT) ?>)'>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Editar</button>
+                      <div class="rowmenu-sep"></div>
+                      <form method="POST" onsubmit="return confirm('¿Eliminar esta cita?')">
+                        <input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $a['id'] ?>">
+                        <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>"><input type="hidden" name="return_qs" value="<?= e($returnQs) ?>">
+                        <button type="submit" class="rowmenu-item danger">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>Eliminar</button>
                       </form>
-                    <?php elseif ($a['status'] === 'confirmed'): ?>
-                      <form method="POST" style="display:inline">
-                        <input type="hidden" name="action" value="complete">
-                        <input type="hidden" name="id" value="<?= $a['id'] ?>">
-                        <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
-                        <input type="hidden" name="return_qs" value="<?= e($returnQs) ?>">
-                        <button type="submit" class="btn-action btn-action-confirm"
-                                onclick="return confirm('¿Marcar como completada? Se registrará el ingreso.')">Completar</button>
-                      </form>
-                      <form method="POST" style="display:inline">
-                        <input type="hidden" name="action" value="cancel">
-                        <input type="hidden" name="id" value="<?= $a['id'] ?>">
-                        <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
-                        <input type="hidden" name="return_qs" value="<?= e($returnQs) ?>">
-                        <button type="submit" class="btn-action btn-action-cancel"
-                                onclick="return confirm('¿Cancelar esta cita?')">Cancelar</button>
-                      </form>
-                    <?php endif; ?>
-                    <?php
-                      $detData = [
-                          "id"=>(int)$a["id"], "client"=>$a["client_name"], "phone"=>$a["client_phone"], "email"=>$a["client_email"],
-                          "services"=>$a["services"], "date"=>date("d M Y",strtotime($a["date"])),
-                          "time"=>date("g:i A",strtotime($a["time_start"]))." – ".date("g:i A",strtotime($a["time_end"])),
-                          "staff"=>$a["staff_name"], "notes"=>$a["notes"], "total"=>formatPrice((float)$a["total_price"]),
-                          "status"=>$a["status"],
-                      ];
-                      $editData = [
-                          'id' => (int)$a['id'], 'client_id' => (int)$a['client_id'],
-                          'services' => array_map('intval', array_filter(explode(',', (string)$a['service_ids']))),
-                          'date' => $a['date'], 'time_start' => $a['time_start'],
-                          'status' => $a['status'], 'notes' => $a['notes'], 'staff_id' => $a['staff_id'],
-                      ];
-                    ?>
-                    <button class="btn-action" onclick='openDetail(<?= json_encode($detData, JSON_HEX_APOS|JSON_HEX_QUOT) ?>)'>Detalle</button>
-                    <button class="btn-action" onclick='openEditarCita(<?= json_encode($editData, JSON_HEX_APOS|JSON_HEX_QUOT) ?>)'>Editar</button>
-                    <form method="POST" style="display:inline" onsubmit="return confirm('¿Eliminar esta cita?')">
-                      <input type="hidden" name="action" value="delete">
-                      <input type="hidden" name="id" value="<?= $a['id'] ?>">
-                      <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
-                      <input type="hidden" name="return_qs" value="<?= e($returnQs) ?>">
-                      <button type="submit" class="btn-action btn-action-cancel">Eliminar</button>
-                    </form>
+                    </div>
                   </div>
                 </td>
               </tr>
@@ -417,6 +416,8 @@ document.querySelectorAll('.modal-overlay').forEach(o => {
   o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
 });
 </script>
+
+<script src="/Blue/assets/js/row-menu.js"></script>
 
 <?php
 $esAdmin = true;
