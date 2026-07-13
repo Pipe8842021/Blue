@@ -32,27 +32,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
 
             case 'complete':
+                // Marca la cita como completada y registra el ingreso (una sola
+                // vez por cita) usando el helper compartido, misma regla que en staff/.
                 $db->beginTransaction();
                 $db->prepare("UPDATE appointments SET status='completed' WHERE id=?")->execute([$id]);
-
-                // Registrar ingreso (una sola vez por cita)
-                $exists = $db->prepare("SELECT COUNT(*) FROM finances WHERE appointment_id=? AND type='income'");
-                $exists->execute([$id]);
-                if (!$exists->fetchColumn()) {
-                    $t = $db->prepare("
-                        SELECT COALESCE(SUM(sv.price),0) AS total, a.date
-                        FROM appointments a
-                        LEFT JOIN appointment_services aps ON aps.appointment_id = a.id
-                        LEFT JOIN services sv ON sv.id = aps.service_id
-                        WHERE a.id = ?");
-                    $t->execute([$id]);
-                    $row = $t->fetch();
-                    if ($row && (float)$row['total'] > 0) {
-                        $db->prepare("INSERT INTO finances (type, category, description, amount, date, appointment_id, registered_by)
-                                      VALUES ('income','Servicios',CONCAT('Cita #', ?), ?, ?, ?, ?)")
-                           ->execute([$id, $row['total'], $row['date'], $id, currentUser()['id']]);
-                    }
-                }
+                registrarIngresoCita($db, $id, currentUser()['id']);
                 $db->commit();
                 setFlash('success', 'Cita completada e ingreso registrado.');
                 break;
@@ -154,17 +138,6 @@ $topbarActions = '<a href="/Blue/admin/calendario.php" class="topbar-btn">'
                . '<button class="topbar-btn topbar-btn-primary" onclick="openNuevaCita()">+ Nueva cita</button>';
 require_once __DIR__ . '/../includes/admin_layout.php';
 
-function badge(string $status): string {
-    $map = [
-        'pending'   => ['Pendiente',  'pending'],
-        'confirmed' => ['Confirmada', 'confirmed'],
-        'completed' => ['Completada', 'completed'],
-        'cancelled' => ['Cancelada',  'cancelled'],
-    ];
-    [$label, $cls] = $map[$status] ?? [$status, 'pending'];
-    return "<span class=\"badge badge-{$cls}\">{$label}</span>";
-}
-
 function buildUrl(array $overrides): string {
     $base = ['status' => $_GET['status'] ?? '', 'date' => $_GET['date'] ?? '', 'q' => $_GET['q'] ?? ''];
     return '?' . http_build_query(array_filter(array_merge($base, $overrides)));
@@ -242,7 +215,7 @@ function buildUrl(array $overrides): string {
                 </td>
                 <td><?= $a['staff_name'] ? e($a['staff_name']) : '<span class="pill pill-muted">Sin asignar</span>' ?></td>
                 <td style="font-weight:600"><?= formatPrice((float)$a['total_price']) ?></td>
-                <td><?= badge($a['status']) ?></td>
+                <td><?= badgeEstadoCita($a['status']) ?></td>
                 <td>
                   <?php
                     $detData = [

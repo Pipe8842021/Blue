@@ -1,0 +1,7 @@
+# Carpeta de imágenes subidas: nunca ejecutar código aquí.
+# Defensa en profundidad por si un archivo malicioso lograra colarse.
+php_flag engine off
+
+<FilesMatch "(?i)\.(php|phar|phtml|php[0-9]|pl|py|cgi|asp|aspx|sh|htm|html)$">
+  Require all denied
+</FilesMatch>

@@ -14,44 +14,33 @@ if (isLoggedIn()) {
 }
 
 $error = '';
+$clientIp = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $email    = trim($_POST['email']    ?? '');
+    $password = trim($_POST['password'] ?? '');
+    // El bloqueo se calcula por IP + correo, no por cookie de sesión.
+    $lockRestante = ($email !== '') ? loginThrottleStatus($clientIp, $email) : 0;
+
     if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
         $error = 'Token de seguridad inválido. Recarga la página e intenta de nuevo.';
 
-    } elseif (!empty($_SESSION['login_locked_until']) && time() < $_SESSION['login_locked_until']) {
-        $error = 'Demasiados intentos fallidos. Espera ' . ($_SESSION['login_locked_until'] - time()) . ' segundos e intenta de nuevo.';
+    } elseif ($lockRestante > 0) {
+        $error = 'Demasiados intentos fallidos. Espera ' . $lockRestante . ' segundos e intenta de nuevo.';
 
+    } elseif (!$email || !$password) {
+        $error = 'Por favor, completa todos los campos.';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = 'El correo electrónico no es válido.';
+    } elseif (login($email, $password)) {
+        loginThrottleReset($clientIp, $email);
+        header('Location: /Blue/' . (hasRole('admin') ? 'admin/' : 'staff/'));
+        exit;
     } else {
-        $email    = trim($_POST['email']    ?? '');
-        $password = trim($_POST['password'] ?? '');
-
-        if (!$email || !$password) {
-            $error = 'Por favor, completa todos los campos.';
-        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $error = 'El correo electrónico no es válido.';
-        } elseif (login($email, $password)) {
-            unset($_SESSION['login_attempts'], $_SESSION['login_locked_until']);
-
-            // Credenciales de demostración: forzar cambio de contraseña antes de continuar.
-            if ($email === 'admin@blue.com' && $password === 'admin123' && hasRole('admin')) {
-                setFlash('error', 'Estás usando la contraseña de demostración. Por seguridad, cámbiala ahora antes de continuar.');
-                header('Location: /Blue/admin/settings.php?tab=security');
-                exit;
-            }
-            header('Location: /Blue/' . (hasRole('admin') ? 'admin/' : 'staff/'));
-            exit;
-        } else {
-            // Bloqueo temporal tras 5 intentos fallidos (mitiga fuerza bruta).
-            $_SESSION['login_attempts'] = ($_SESSION['login_attempts'] ?? 0) + 1;
-            if ($_SESSION['login_attempts'] >= 5) {
-                $_SESSION['login_locked_until'] = time() + 60;
-                $_SESSION['login_attempts']     = 0;
-                $error = 'Demasiados intentos fallidos. Espera 60 segundos e intenta de nuevo.';
-            } else {
-                $error = 'Correo o contraseña incorrectos.';
-            }
-        }
+        loginThrottleFail($clientIp, $email);
+        $error = (loginThrottleStatus($clientIp, $email) > 0)
+            ? 'Demasiados intentos fallidos. Espera unos minutos e intenta de nuevo.'
+            : 'Correo o contraseña incorrectos.';
     }
 }
 ?>
@@ -100,19 +89,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="auth-left__features">
                 <div class="auth-left__feature">
-                    <div class="auth-left__feature-icon">📅</div>
+                    <div class="auth-left__feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
                     <span class="auth-left__feature-text">Gestión completa de citas</span>
                 </div>
                 <div class="auth-left__feature">
-                    <div class="auth-left__feature-icon">💰</div>
+                    <div class="auth-left__feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
                     <span class="auth-left__feature-text">Control de ingresos y egresos</span>
                 </div>
                 <div class="auth-left__feature">
-                    <div class="auth-left__feature-icon">👥</div>
+                    <div class="auth-left__feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div>
                     <span class="auth-left__feature-text">Administración de personal</span>
                 </div>
                 <div class="auth-left__feature">
-                    <div class="auth-left__feature-icon">📊</div>
+                    <div class="auth-left__feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
                     <span class="auth-left__feature-text">Reportes y estadísticas</span>
                 </div>
             </div>

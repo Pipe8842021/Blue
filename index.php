@@ -63,7 +63,7 @@ $placeholders = [
   <style>
 /* ─── Variables ─── */
 :root {
-  --teal:       #5bc4b8;
+  --teal:       #5bc4d0; /* turquesa exacto del logo (marca pública, = --cyan-300) */
   --teal-dark:  #3aa89e;
   --teal-light: #e6f7f5;
   --pink-light: #fce8e8;
@@ -72,8 +72,12 @@ $placeholders = [
   --text:       #333;
   --muted:      #777;
   --white:      #ffffff;
-  --gold:       #c8a96e;
+  --gold:       #c9a84c; /* dorado premium público */
 }
+/* Contacto del footer: icono SVG + texto alineados */
+.footer-contact-list { display: flex; flex-direction: column; gap: 12px; }
+.footer-contact-list span { display: flex; align-items: flex-start; gap: 9px; }
+.footer-contact-list svg { width: 17px; height: 17px; flex-shrink: 0; margin-top: 2px; color: var(--teal); }
 
 /* ─── Reset ─── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -690,7 +694,7 @@ footer { background: var(--dark); color: rgba(255,255,255,0.7); padding: 60px 40
 
 <!-- Lightbox -->
 <div class="lightbox" id="lightbox" onclick="closeLightbox()">
-  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <button class="lightbox-close" onclick="closeLightbox()" aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
   <img id="lightboxImg" src="" alt="Foto ampliada" onclick="event.stopPropagation()">
 </div>
 
@@ -730,11 +734,10 @@ footer { background: var(--dark); color: rgba(255,255,255,0.7); padding: 60px 40
     </div>
     <div class="footer-col footer-contact">
       <h4>Contacto</h4>
-      <p>
-        📍 Calle Principal #123<br>
-        Centro Comercial Blue<br><br>
-        📞 +57 300 123 4567<br><br>
-        ✉️ info@bluetherapy.com
+      <p class="footer-contact-list">
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg> Calle Principal #123, Centro Comercial Blue</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0122 16.92z"/></svg> +57 300 123 4567</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z"/><polyline points="22,6 12,13 2,6"/></svg> info@bluetherapy.com</span>
       </p>
     </div>
   </div>

@@ -4,8 +4,10 @@
 # Imágenes subidas por usuarios (la carpeta se conserva con .gitkeep)
 assets/img/gallery/*
 !assets/img/gallery/.gitkeep
+!assets/img/gallery/.htaccess
 assets/img/servicios/*
 !assets/img/servicios/.gitkeep
+!assets/img/servicios/.htaccess
 
 # Archivos del sistema / editor
 .claude/

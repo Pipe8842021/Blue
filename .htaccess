@@ -1,0 +1,33 @@
+# ============================================================
+# Blue Therapy — Endurecimiento para despliegue (Apache)
+# Este archivo protege el proyecto cuando se sirve por HTTP.
+# ============================================================
+
+# No listar el contenido de las carpetas (Index of ...)
+Options -Indexes
+
+# No revelar la versión de Apache en las cabeceras
+ServerSignature Off
+
+# ── Bloquear archivos y carpetas que no deben servirse ──────
+# Repositorio git, base de datos, documentación, config de herramientas.
+RedirectMatch 404 (?i)/\.git(/|$)
+
+<FilesMatch "(?i)\.(sql|md|docx|log|env|sh|py|ya?ml|ini|bak|sample|dist)$">
+  Require all denied
+</FilesMatch>
+
+# Cualquier archivo oculto (.git, .env, .htaccess, .claude...)
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>
+
+# Carpetas de solo-servidor: nada dentro debe ser accesible por HTTP.
+RedirectMatch 404 (?i)^/Blue/(database|includes|config|docs|\.claude)/
+
+# ── Cabeceras de seguridad para todas las respuestas ────────
+<IfModule mod_headers.c>
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>

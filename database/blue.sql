@@ -40,10 +40,35 @@ CREATE TABLE services (
     category_id   INT UNSIGNED      NOT NULL,
     name          VARCHAR(150)      NOT NULL,
     description   TEXT,
+    image         VARCHAR(255)      NULL COMMENT 'Nombre del archivo en assets/img/servicios/',
     duration_min  SMALLINT UNSIGNED NOT NULL DEFAULT 60 COMMENT 'Duración en minutos',
     price         DECIMAL(10,2)     NOT NULL DEFAULT 0.00,
     active        TINYINT(1)        NOT NULL DEFAULT 1,
+    featured      TINYINT(1)        NOT NULL DEFAULT 0 COMMENT '1 = servicio destacado',
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
+);
+
+-- ------------------------------------------------------------
+-- Galería (imágenes del sitio público, agrupadas por categoría)
+-- ------------------------------------------------------------
+CREATE TABLE gallery (
+    id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    file       VARCHAR(255) NOT NULL UNIQUE COMMENT 'Nombre del archivo en assets/img/gallery/',
+    category   VARCHAR(60)  NOT NULL DEFAULT 'General',
+    created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ------------------------------------------------------------
+-- Control de intentos de login (anti fuerza bruta, por IP + correo)
+-- ------------------------------------------------------------
+CREATE TABLE login_throttle (
+    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    ip            VARCHAR(45)  NOT NULL,
+    email         VARCHAR(150) NOT NULL,
+    attempts      SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    locked_until  DATETIME     NULL,
+    updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_ip_email (ip, email)
 );
 
 -- ------------------------------------------------------------
@@ -124,9 +149,12 @@ CREATE TABLE staff_schedules (
 -- Datos iniciales
 -- ------------------------------------------------------------
 
--- Admin por defecto  →  email: admin@blue.com  /  password: admin123
+-- Admin por defecto (email: admin@blue.com).
+-- La contraseña inicial se entrega por un canal seguro, NUNCA en este archivo.
+-- El sistema obliga a cambiarla en el primer inicio de sesión.
+-- Para (re)generar el hash:  php -r "echo password_hash('TU_CLAVE', PASSWORD_BCRYPT);"
 INSERT INTO users (name, email, password, role) VALUES
-('Administrador', 'admin@blue.com', '$2y$12$yE65XijGsSohQMzIb2u23O8NcTzZXOlIBEBMLVib5C41uiXesICWK', 'admin');
+('Administrador', 'admin@blue.com', '$2y$12$REEMPLAZAR_POR_UN_HASH_BCRYPT_REAL_ANTES_DE_DESPLEGAR', 'admin');
 
 -- Categorías
 INSERT INTO categories (name, description, icon) VALUES

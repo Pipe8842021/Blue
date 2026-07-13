@@ -21,8 +21,11 @@ function getDB(): PDO {
             $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
             $pdo->exec("SET time_zone = '-05:00'"); // CURDATE()/NOW() en hora de Colombia
         } catch (PDOException $e) {
-            http_response_code(500);
-            die(json_encode(['error' => 'Error de conexión con la base de datos.']));
+            // Registrar el detalle solo en el log (nunca al usuario) y relanzar
+            // una excepción genérica: cada página decide cómo responder
+            // (las públicas pueden degradar; las APIs devuelven su propio JSON).
+            error_log('[Blue] Error de conexion con la BD: ' . $e->getMessage());
+            throw new RuntimeException('No se pudo conectar con la base de datos.');
         }
     }
     return $pdo;

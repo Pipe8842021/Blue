@@ -23,7 +23,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $name     = trim($_POST['name'] ?? '');
                 $desc     = trim($_POST['description'] ?? '');
                 $dur      = max(1, (int)($_POST['duration_min'] ?? 60));
-                $price    = max(0, (float)str_replace([',', '.'], ['', ''], $_POST['price'] ?? 0));
+                // El campo es <input type="number">: el navegador envía siempre
+                // formato canónico (punto decimal, sin separador de miles), así que
+                // basta castear. Conserva decimales: "80000.50" -> 80000.50.
+                $price    = max(0, (float)($_POST['price'] ?? 0));
                 $featured = isset($_POST['featured']) ? 1 : 0;
 
                 if ($name === '' || $catId === 0) { setFlash('error', 'Nombre y categoría son obligatorios.'); break; }
