@@ -30,5 +30,6 @@ window.addEventListener('resize', () => {
 });
 </script>
 <script src="/Blue/assets/js/confirm-modal.js"></script>
+<script src="/Blue/assets/js/table-scroll.js"></script>
 </body>
 </html>

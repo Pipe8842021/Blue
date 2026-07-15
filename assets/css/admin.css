@@ -401,6 +401,44 @@ ul { list-style: none; }
   -webkit-overflow-scrolling: touch;
 }
 
+/* Indicador de scroll horizontal (lo envuelve table-scroll.js).
+   Degradado difuminado + píldora "Deslizar" que desaparecen al llegar al final. */
+.table-scroll-outer { position: relative; }
+.table-scroll-outer.has-overflow::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0; width: 72px;
+  background: linear-gradient(to right, rgba(255,255,255,0) 0%, #fff 75%);
+  pointer-events: none;
+  z-index: 2;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.table-scroll-badge {
+  position: absolute;
+  right: 12px; top: 50%;
+  transform: translateY(-50%) translateX(14px);
+  display: flex; align-items: center; gap: 4px;
+  background: var(--teal); color: #fff;
+  border-radius: 20px; padding: 6px 12px 6px 9px;
+  font-size: 11.5px; font-weight: 700; white-space: nowrap;
+  pointer-events: none; z-index: 4; opacity: 0;
+  transition: opacity .35s ease, transform .35s ease;
+  box-shadow: 0 3px 16px rgba(91,196,184,.55);
+}
+.table-scroll-badge svg { width: 15px; height: 15px; }
+.table-scroll-outer.has-overflow .table-scroll-badge {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+  animation: tbl-badge-nudge 2s ease-in-out .5s infinite;
+}
+@keyframes tbl-badge-nudge {
+  0%, 100% { transform: translateY(-50%) translateX(0); }
+  40%      { transform: translateY(-50%) translateX(-6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .table-scroll-outer.has-overflow .table-scroll-badge { animation: none; }
+}
+
 table.data-table {
   width: 100%;
   border-collapse: collapse;
@@ -623,6 +661,11 @@ table.data-table {
   .admin-content { padding: 20px 16px; }
   .stats-grid { grid-template-columns: 1fr 1fr; gap: 14px; }
   .topbar-btn-text { display: none; }
+  /* Topbar compacto: título truncable y acciones que no fuerzan el ancho */
+  .admin-topbar   { padding: 0 14px; gap: 10px; }
+  .topbar-title   { font-size: 15px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar-actions { gap: 8px; min-width: 0; }
+  .topbar-btn     { padding: 7px 10px; }
 }
 
 @media (max-width: 480px) {

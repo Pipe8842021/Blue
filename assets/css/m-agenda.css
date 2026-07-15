@@ -153,6 +153,11 @@
   .cal-cell { min-height: 72px; }
   .cal-chip-name { display: none; }
   .cal-dow { font-size: 9px; }
+  /* La barra de navegación del mes no cabe en una fila: que envuelva */
+  .cal-nav { flex-wrap: wrap; justify-content: center; gap: 8px; row-gap: 10px; }
+  .cal-title { min-width: 0; flex: 1 1 100%; order: -1; }
+  .cal-grid { gap: 4px; }
+  .cal-cell { padding: 5px 4px; }
 }
 
 /* ════════════════════════════════════════
