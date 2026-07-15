@@ -121,6 +121,10 @@
   display: flex; align-items: center; justify-content: center;
 }
 .svc-upload-preview img { width: 100%; height: 100%; object-fit: cover; }
+/* Una regla global de imágenes ponía display:block al <img>, anulando el
+   atributo hidden: el preview vacío ocupaba espacio y descuadraba el icono.
+   Forzamos que hidden gane para que el placeholder quede centrado. */
+.svc-upload-preview img[hidden] { display: none; }
 .svc-upload-empty { display: flex; color: var(--muted); }
 .svc-upload-empty svg { width: 26px; height: 26px; }
 .svc-upload-side { flex: 1; min-width: 0; }
