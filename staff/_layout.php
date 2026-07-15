@@ -41,7 +41,7 @@ try {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><?= e($pageTitle) ?> — Blue Therapy</title>
-  <link rel="stylesheet" href="/Blue/assets/css/admin.css">
+  <link rel="stylesheet" href="/Blue/assets/css/admin.css?v=<?= @filemtime(__DIR__ . '/../assets/css/admin.css') ?>">
   <link rel="stylesheet" href="/Blue/assets/css/m-agenda.css?v=<?= @filemtime(__DIR__ . '/../assets/css/m-agenda.css') ?>">
 </head>
 <body>

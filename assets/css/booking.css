@@ -28,7 +28,11 @@
   padding: 112px 24px 88px;
   text-align: center;
   position: relative;
-  /* sin overflow:hidden para que la tarjeta pueda solaparse correctamente */
+  /* Recorta los círculos decorativos (::before/::after) que sobresalen por los
+     lados y causaban scroll horizontal en móvil. La tarjeta de abajo es un
+     elemento HERMANO (.booking-wrapper), no hija, así que su solapamiento no
+     se ve afectado por este overflow. */
+  overflow: hidden;
 }
 
 .booking-hero::before {

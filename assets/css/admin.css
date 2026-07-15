@@ -209,6 +209,7 @@ ul { list-style: none; }
 .admin-main {
   margin-left: var(--sb-width);
   flex: 1;
+  min-width: 0; /* permite que el contenido se encoja al viewport (evita desbordes con tablas/gráficas) */
   display: flex;
   flex-direction: column;
   min-height: 100vh;
