@@ -223,12 +223,24 @@ $chartExpense = implode(',', array_map(fn($r) => (float)$r['expense'], $chartRow
             <tr>
               <td><?= date('d M Y', strtotime($m['date'])) ?></td>
               <td><span class="pill"><?= e($m['category']) ?></span></td>
-              <td style="color:var(--muted);max-width:240px"><?= e($m['description'] ?? '—') ?></td>
+              <td style="color:var(--muted);max-width:240px">
+                <?= e($m['description'] ?? '—') ?>
+                <?php if (!empty($m['appointment_id'])): ?>
+                  <a class="fin-cita-link" href="/Blue/cita.php?id=<?= (int)$m['appointment_id'] ?>">
+                    ver cita #<?= (int)$m['appointment_id'] ?>
+                  </a>
+                <?php endif; ?>
+              </td>
               <td><?= $m['type']==='income' ? '<span class="type-income">Ingreso</span>' : '<span class="type-expense">Egreso</span>' ?></td>
               <td class="<?= $m['type']==='income' ? 'type-income' : 'type-expense' ?>">
                 <?= $m['type']==='income' ? '+' : '−' ?> <?= formatPrice((float)$m['amount']) ?>
               </td>
-              <td style="color:var(--muted);font-size:12px"><?= e($m['registered_name'] ?? '—') ?></td>
+              <td style="color:var(--muted);font-size:12px">
+                <?php // Sin usuario = lo registró solo la pasarela al aprobarse un abono. ?>
+                <?= $m['registered_by'] === null
+                      ? '<span class="pill pill-auto">Pago en línea</span>'
+                      : e($m['registered_name'] ?? '—') ?>
+              </td>
               <td>
                 <div class="action-btns">
                   <button class="btn-action" onclick='editMovement(<?= json_encode($m, JSON_HEX_APOS|JSON_HEX_QUOT) ?>)'>Editar</button>

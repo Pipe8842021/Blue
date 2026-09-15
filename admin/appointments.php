@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/session.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/h-agenda.php';
+require_once __DIR__ . '/../includes/h-pagos.php';
 
 requireRole('admin', '/Blue/login.php');
 $db = getDB();
@@ -23,11 +24,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $staffId = (int)($_POST['staff_id'] ?? 0) ?: null;
                 $s = $db->prepare("UPDATE appointments SET status='confirmed', staff_id=? WHERE id=?");
                 $s->execute([$staffId, $id]);
+                avisarPorCorreoSiCorresponde($db, $id, 'confirmada');
                 setFlash('success', 'Cita confirmada correctamente.');
                 break;
 
             case 'cancel':
                 $db->prepare("UPDATE appointments SET status='cancelled' WHERE id=?")->execute([$id]);
+                avisarPorCorreoSiCorresponde($db, $id, 'cancelada');
                 setFlash('info', 'La cita fue cancelada.');
                 break;
 
@@ -38,6 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db->prepare("UPDATE appointments SET status='completed' WHERE id=?")->execute([$id]);
                 registrarIngresoCita($db, $id, currentUser()['id']);
                 $db->commit();
+                avisarPorCorreoSiCorresponde($db, $id, 'completada');
                 setFlash('success', 'Cita completada e ingreso registrado.');
                 break;
 
@@ -116,6 +120,9 @@ $sql = "
 $stmt = $db->prepare($sql);
 $stmt->execute($args);
 $rows = $stmt->fetchAll();
+
+// Abonos y saldos ya cobrados de las citas de esta página (una sola consulta).
+$pagadoPorCita = pagosPorCita($db, array_column($rows, 'id'));
 
 // Staff disponible para asignar
 $staffList = $db->query("SELECT id, name FROM users WHERE active=1 ORDER BY name")->fetchAll();
@@ -214,7 +221,13 @@ function buildUrl(array $overrides): string {
                   <div style="color:var(--muted);font-size:12px"><?= date('g:i A', strtotime($a['time_start'])) ?></div>
                 </td>
                 <td><?= $a['staff_name'] ? e($a['staff_name']) : '<span class="pill pill-muted">Sin asignar</span>' ?></td>
-                <td style="font-weight:600"><?= formatPrice((float)$a['total_price']) ?></td>
+                <td style="font-weight:600">
+                  <?= formatPrice((float)$a['total_price']) ?>
+                  <?php $insignia = insigniaPagoCita((float)$a['total_price'], (float)($pagadoPorCita[$a['id']] ?? 0)); ?>
+                  <?php if ($insignia): ?>
+                    <div style="margin-top:5px;font-weight:500"><?= $insignia ?></div>
+                  <?php endif; ?>
+                </td>
                 <td><?= badgeEstadoCita($a['status']) ?></td>
                 <td>
                   <?php
@@ -260,6 +273,8 @@ function buildUrl(array $overrides): string {
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Cancelar</button>
                         </form>
                       <?php endif; ?>
+                      <a class="rowmenu-item" href="/Blue/cita.php?id=<?= (int)$a['id'] ?>">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Ver estado y pagos</a>
                       <button class="rowmenu-item" onclick='openDetail(<?= json_encode($detData, JSON_HEX_APOS|JSON_HEX_QUOT) ?>)'>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>Detalle</button>
                       <button class="rowmenu-item" onclick='openEditarCita(<?= json_encode($editData, JSON_HEX_APOS|JSON_HEX_QUOT) ?>)'>

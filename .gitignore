@@ -20,3 +20,12 @@ Thumbs.db
 # Archivos temporales/copias de Word
 ~$*.docx
 *_ACTUALIZADO.docx
+
+# Llaves reales de la pasarela de pagos (Wompi) — nunca se versionan
+config/wompi.local.php
+
+# Credenciales reales de correo (SMTP) — nunca se versionan
+config/mail.local.php
+
+# Correos de prueba guardados en modo demo (metodo=log)
+logs/correos/

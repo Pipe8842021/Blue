@@ -23,7 +23,7 @@ RedirectMatch 404 (?i)/\.git(/|$)
 </FilesMatch>
 
 # Carpetas de solo-servidor: nada dentro debe ser accesible por HTTP.
-RedirectMatch 404 (?i)^/Blue/(database|includes|config|docs|\.claude)/
+RedirectMatch 404 (?i)^/Blue/(database|includes|config|docs|tests|logs|\.claude)/
 
 # ── Cabeceras de seguridad para todas las respuestas ────────
 <IfModule mod_headers.c>

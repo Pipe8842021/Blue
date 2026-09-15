@@ -2,6 +2,8 @@
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/session.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/h-pagos.php';
+require_once __DIR__ . '/../includes/h-correo.php';
 
 // Cabeceras de seguridad — página de credenciales/usuarios del panel.
 header('X-Frame-Options: DENY');
@@ -79,6 +81,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db->prepare("UPDATE users SET active = 1 - active WHERE id=?")->execute([$id]);
                 setFlash('info', 'Estado del usuario actualizado.');
                 break;
+
+            case 'probar_wompi':
+                // Revisa llaves, URL y conexión con Wompi sin cobrar nada. El resultado
+                // se guarda en la sesión para mostrarlo después del redirect (PRG).
+                $diag = diagnosticoPasarelaWompi($db);
+                $_SESSION['diagnostico_wompi'] = $diag;
+                if ($diag['listo']) {
+                    setFlash('success', 'Conexión verificada: la pasarela está lista para cobrar'
+                        . ($diag['avisos'] ? ' (revisa los avisos).' : '.'));
+                } else {
+                    setFlash('error', 'La pasarela todavía no puede cobrar: hay ' . $diag['errores']
+                        . ($diag['errores'] === 1 ? ' punto' : ' puntos') . ' por corregir.');
+                }
+                break;
+
+            case 'probar_correo':
+                // Se envía a la cuenta del admin que está probando, no a un cliente real.
+                $asunto = 'Correo de prueba — Blue Therapy';
+                $html   = plantillaCorreo('Correo de prueba', '<h1 style="font-family:Georgia,serif;'
+                    . 'font-size:22px;margin:0 0 10px;color:#1a1a1a">Este es un correo de prueba</h1>'
+                    . '<p style="margin:0;font-size:14px;line-height:1.6;color:#555">Si lo estás leyendo en tu bandeja de '
+                    . 'entrada, la configuración de correo de Blue Therapy quedó lista para avisar a los clientes.</p>'
+                    . '<p style="margin:16px 0 0;font-size:12.5px;color:#999">Enviado a ' . e($me['email']) . ' el '
+                    . e(date('d/m/Y \\a \\l\\a\\s g:i A')) . '.</p>');
+                $enviado = enviarCorreo($me['email'], $me['name'], $asunto, $html);
+
+                if (correoEnModoPrueba()) {
+                    setFlash('info', 'Modo de prueba: el correo no se envió de verdad, quedó guardado en logs/correos/.');
+                } elseif ($enviado) {
+                    setFlash('success', 'Correo de prueba enviado a ' . $me['email'] . '. Revisa tu bandeja (y spam).');
+                } else {
+                    setFlash('error', 'No se pudo enviar el correo de prueba. Revisa la configuración en config/mail.local.php.');
+                }
+                break;
         }
     } catch (PDOException $e) {
         if ($e->getCode() === '23000') setFlash('error', 'Ese correo ya está registrado.');
@@ -95,6 +131,40 @@ $staff = $db->query("SELECT * FROM users ORDER BY role, name")->fetchAll();
 $prof = $db->prepare("SELECT * FROM users WHERE id=?");
 $prof->execute([$me['id']]);
 $profile = $prof->fetch();
+
+// ── Pagos en línea ────────────────────────────────────────
+// La configuración vive en config/wompi.php (archivo, no base de datos):
+// aquí solo se muestra el estado y los últimos movimientos de la pasarela.
+$pagosUltimos = [];
+$pagosError   = null;
+$pagosResumen = ['aprobados' => 0, 'total' => 0.0, 'pendientes' => 0];
+
+// Última verificación de la cuenta; queda "vieja" si la configuración cambió después.
+$diagnostico      = $_SESSION['diagnostico_wompi'] ?? null;
+$diagnosticoViejo = $diagnostico && ($diagnostico['huella'] ?? '') !== huellaConfigPagos();
+
+if ($tab === 'payments') {
+    try {
+        $pagosUltimos = $db->query(
+            "SELECT p.*, a.date AS cita_fecha, a.time_start AS cita_hora, a.status AS cita_estado,
+                    c.name AS cliente
+               FROM payments p
+               JOIN appointments a ON a.id = p.appointment_id
+               JOIN clients      c ON c.id = a.client_id
+              ORDER BY p.id DESC LIMIT 20"
+        )->fetchAll();
+
+        $pagosResumen = $db->query(
+            "SELECT COUNT(CASE WHEN status = 'approved' THEN 1 END)         AS aprobados,
+                    COALESCE(SUM(CASE WHEN status = 'approved' THEN amount END), 0) AS total,
+                    COUNT(CASE WHEN status = 'pending'  THEN 1 END)         AS pendientes
+               FROM payments"
+        )->fetch();
+    } catch (PDOException $e) {
+        // Lo más probable: falta correr database/migrations/02_finanzas.sql.
+        $pagosError = 'No se pudo leer la tabla de pagos. ¿Ya ejecutaste la migración 02_finanzas.sql?';
+    }
+}
 
 $pageTitle  = 'Configuración';
 $activePage = 'settings';
@@ -119,6 +189,18 @@ $sections = [
         'label'    => 'Equipo',
         'desc'     => 'Usuarios y roles del panel',
         'icon'     => '<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>',
+        'critical' => false,
+    ],
+    'payments' => [
+        'label'    => 'Pagos en línea',
+        'desc'     => 'Pasarela Wompi y abonos',
+        'icon'     => '<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>',
+        'critical' => true,
+    ],
+    'mail' => [
+        'label'    => 'Correo',
+        'desc'     => 'Avisos al cliente por email',
+        'icon'     => '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/>',
         'critical' => false,
     ],
 ];
@@ -358,6 +440,409 @@ if (!isset($sections[$tab])) { $tab = 'profile'; }
     o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
   });
   </script>
+<?php endif; ?>
+
+<!-- ══════ PAGOS EN LÍNEA ══════ -->
+<?php if ($tab === 'payments'): ?>
+  <?php
+  $pagoCfg    = configPagos();
+  $pagoActivo = pagosEnLineaActivos();
+  $llavePub   = (string)($pagoCfg['llave_publica'] ?? '');
+  $enmascarar = fn(string $v) => $v === '' ? '' : substr($v, 0, 12) . '····' . substr($v, -4);
+  $urlEventos = urlBaseSitio() . '/api/wompi_webhook.php';
+  $urlRetorno = urlBaseSitio() . '/pago_resultado.php';
+  $abonoCfg   = $pagoCfg['abono'] ?? [];
+  ?>
+  <div class="settings-panel-head">
+    <div>
+      <h3>Pagos en línea</h3>
+      <p>Wompi cobra un abono al reservar y la cita se confirma sola cuando el pago se aprueba</p>
+    </div>
+    <?php
+      [$pillClase, $pillTexto] = !$pagoActivo       ? ['is-off',  'Sin configurar']
+                               : (pagosEnModoDemo() ? ['is-demo', 'Modo demostración']
+                                                    : ['is-on',   'Pasarela activa']);
+    ?>
+    <span class="pago-estado-pill <?= $pillClase ?>"><?= $pillTexto ?></span>
+  </div>
+
+  <?php // .flash es flex: el texto va en un solo <span> para que no se parta en columnas. ?>
+  <?php if (!$pagoActivo): ?>
+    <div class="flash flash-info" style="margin-bottom:18px">
+      <span>Mientras no haya llaves cargadas, el agendamiento sigue funcionando como antes:
+      el cliente envía una solicitud y el equipo la confirma por WhatsApp.</span>
+    </div>
+  <?php elseif (pagosEnModoDemo()): ?>
+    <div class="flash flash-error" style="margin-bottom:18px">
+      <span><strong>Modo demostración.</strong> El paso de pago se ve en el sitio, pero no se puede cobrar:
+      reemplaza las llaves de relleno de <code>config/wompi.local.php</code> por las de tu cuenta de Wompi.</span>
+    </div>
+  <?php elseif (!pagosEnProduccion()): ?>
+    <div class="flash flash-info" style="margin-bottom:18px">
+      <span>Estás en <strong>ambiente de pruebas</strong>: los pagos no mueven dinero real.
+      Para salir a producción, carga las llaves <code>pub_prod_…</code> en <code>config/wompi.local.php</code>.</span>
+    </div>
+  <?php endif; ?>
+
+  <!-- ══ Verificación: ¿lista para cobrar? ══ -->
+  <div class="card diag-card"><div class="card-body">
+    <div class="diag-head">
+      <div>
+        <h4 class="pago-bloque-titulo">Verificación de la cuenta</h4>
+        <p class="diag-intro">Revisa las llaves, la URL del sitio y la conexión real con Wompi. No cobra nada.</p>
+      </div>
+      <form method="POST">
+        <input type="hidden" name="action" value="probar_wompi">
+        <input type="hidden" name="tab" value="payments">
+        <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+        <button type="submit" class="btn btn-primary diag-boton">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+          Probar conexión con Wompi
+        </button>
+      </form>
+    </div>
+
+    <?php if (!$diagnostico): ?>
+      <ol class="diag-pasos">
+        <li><strong>Crea la cuenta</strong> en comercios.wompi.co — el ambiente de pruebas es gratis.</li>
+        <li><strong>Copia las 4 llaves de pruebas</strong> (Desarrolladores → Llaves de API) en <code>config/wompi.local.php</code>.</li>
+        <li><strong>Pega la URL de eventos</strong> que aparece abajo en Desarrolladores → URL de eventos.</li>
+        <li><strong>Pulsa «Probar conexión»</strong> y corrige lo que salga en rojo.</li>
+        <li><strong>Haz un pago de prueba</strong> desde el sitio con una tarjeta de sandbox de Wompi.</li>
+      </ol>
+    <?php else:
+      $gruposDiag = [];
+      foreach ($diagnostico['checks'] as $ck) $gruposDiag[$ck['grupo']][] = $ck;
+      $iconosDiag = ['ok' => '✓', 'aviso' => '!', 'error' => '✕', 'omitido' => '–'];
+    ?>
+      <div class="diag-resumen diag-resumen--<?= $diagnostico['listo'] ? 'ok' : 'error' ?>">
+        <span class="diag-resumen-icono"><?= $diagnostico['listo'] ? '✓' : '!' ?></span>
+        <div>
+          <strong><?= $diagnostico['listo'] ? 'Lista para cobrar' : 'Todavía no puede cobrar' ?></strong>
+          <span>
+            <?= (int)$diagnostico['errores'] ?> por corregir · <?= (int)$diagnostico['avisos'] ?> <?= $diagnostico['avisos'] === 1 ? 'aviso' : 'avisos' ?>
+            · probado el <?= e(date('d/m/Y \a \l\a\s g:i A', strtotime($diagnostico['fecha']))) ?>
+          </span>
+        </div>
+      </div>
+
+      <?php if ($diagnosticoViejo): ?>
+        <p class="diag-viejo">La configuración cambió desde esta prueba: vuelve a pulsar «Probar conexión».</p>
+      <?php endif; ?>
+
+      <?php foreach ($gruposDiag as $grupo => $items): ?>
+        <div class="diag-grupo">
+          <div class="diag-grupo-titulo"><?= e($grupo) ?></div>
+          <ul class="diag-lista">
+            <?php foreach ($items as $ck): ?>
+              <li class="diag-item diag-item--<?= e($ck['estado']) ?>">
+                <span class="diag-icono" aria-hidden="true"><?= $iconosDiag[$ck['estado']] ?? '·' ?></span>
+                <span class="diag-texto"><strong><?= e($ck['nombre']) ?></strong><?= e($ck['detalle']) ?></span>
+              </li>
+            <?php endforeach; ?>
+          </ul>
+        </div>
+      <?php endforeach; ?>
+    <?php endif; ?>
+  </div></div>
+
+  <div class="card"><div class="card-body">
+    <h4 class="pago-bloque-titulo">Conexión</h4>
+    <div class="pago-config-grid">
+      <div class="pago-config-item">
+        <span class="pci-label">Ambiente</span>
+        <span class="pci-value"><?= pagosEnProduccion() ? 'Producción (dinero real)' : 'Pruebas (sandbox)' ?></span>
+      </div>
+      <div class="pago-config-item">
+        <span class="pci-label">Llave pública</span>
+        <span class="pci-value pci-mono"><?= $llavePub ? e($enmascarar($llavePub)) : '— sin cargar —' ?></span>
+      </div>
+      <div class="pago-config-item">
+        <span class="pci-label">Llave privada</span>
+        <span class="pci-value"><?= !empty($pagoCfg['llave_privada']) ? 'Cargada' : '— sin cargar —' ?></span>
+      </div>
+      <div class="pago-config-item">
+        <span class="pci-label">Secreto de integridad</span>
+        <span class="pci-value"><?= !empty($pagoCfg['secreto_integridad']) ? 'Cargado' : '— sin cargar —' ?></span>
+      </div>
+      <div class="pago-config-item">
+        <span class="pci-label">Secreto de eventos</span>
+        <span class="pci-value"><?= !empty($pagoCfg['secreto_eventos']) ? 'Cargado' : '— sin cargar (el webhook no funcionará) —' ?></span>
+      </div>
+      <div class="pago-config-item full">
+        <span class="pci-label">URL de eventos — pégala en Wompi (Desarrolladores → URL de eventos)</span>
+        <span class="pci-copiable">
+          <span class="pci-value pci-mono" id="urlEventosWompi"><?= e($urlEventos) ?></span>
+          <button type="button" class="pci-copiar" data-copiar="urlEventosWompi">Copiar</button>
+        </span>
+      </div>
+      <div class="pago-config-item full">
+        <span class="pci-label">URL de redirección tras el pago</span>
+        <span class="pci-value pci-mono"><?= e($urlRetorno) ?></span>
+      </div>
+    </div>
+
+    <h4 class="pago-bloque-titulo" style="margin-top:26px">Regla del abono</h4>
+    <div class="pago-config-grid">
+      <div class="pago-config-item">
+        <span class="pci-label">Porcentaje del total</span>
+        <span class="pci-value"><?= e((string)($abonoCfg['porcentaje'] ?? 30)) ?>%</span>
+      </div>
+      <div class="pago-config-item">
+        <span class="pci-label">Abono mínimo</span>
+        <span class="pci-value"><?= e(formatPrice((float)($abonoCfg['minimo'] ?? 0))) ?></span>
+      </div>
+      <div class="pago-config-item">
+        <span class="pci-label">Abono máximo</span>
+        <span class="pci-value"><?= ((float)($abonoCfg['maximo'] ?? 0)) > 0 ? e(formatPrice((float)$abonoCfg['maximo'])) : 'Sin tope' ?></span>
+      </div>
+      <div class="pago-config-item">
+        <span class="pci-label">Redondeo</span>
+        <span class="pci-value"><?= ((float)($abonoCfg['redondear_a'] ?? 0)) > 0 ? 'Hacia arriba a ' . e(formatPrice((float)$abonoCfg['redondear_a'])) : 'Sin redondeo' ?></span>
+      </div>
+      <div class="pago-config-item">
+        <span class="pci-label">Tiempo para pagar</span>
+        <span class="pci-value"><?= (int)($pagoCfg['minutos_reserva'] ?? 20) ?> minutos</span>
+      </div>
+      <div class="pago-config-item">
+        <span class="pci-label">Abono obligatorio</span>
+        <span class="pci-value">
+          <?php if (empty($pagoCfg['abono_obligatorio'])): ?>No — el pago es opcional
+          <?php elseif (pagosEnModoDemo()): ?>En pausa — se exige cuando haya llaves reales
+          <?php else: ?>Sí — no se agenda sin pagar<?php endif; ?>
+        </span>
+      </div>
+    </div>
+
+    <p class="form-hint" style="margin-top:18px">
+      Estos valores se editan en <code>config/wompi.php</code> (o en <code>config/wompi.local.php</code>
+      para las llaves de producción, que nunca se suben al repositorio).
+    </p>
+  </div></div>
+
+  <!-- Últimos pagos -->
+  <div class="settings-panel-head" style="margin-top:26px">
+    <div>
+      <h3>Últimos abonos</h3>
+      <p>Cada abono aprobado confirma su cita y queda registrado como ingreso en Finanzas</p>
+    </div>
+  </div>
+
+  <?php if ($pagosError): ?>
+    <div class="flash flash-error"><?= e($pagosError) ?></div>
+  <?php else: ?>
+    <div class="summary-grid" style="margin-bottom:18px">
+      <div class="summary-card income">
+        <div class="label">Total recibido</div>
+        <div class="value"><?= e(formatPrice((float)$pagosResumen['total'])) ?></div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Pagos aprobados</div>
+        <div class="value"><?= (int)$pagosResumen['aprobados'] ?></div>
+      </div>
+      <div class="summary-card">
+        <div class="label">En proceso</div>
+        <div class="value"><?= (int)$pagosResumen['pendientes'] ?></div>
+      </div>
+    </div>
+
+    <div class="card"><div class="card-body--flush">
+      <?php if (empty($pagosUltimos)): ?>
+        <div class="empty-state">
+          <div class="empty-state-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          </div>
+          <div class="empty-state-title">Todavía no hay pagos</div>
+          <div class="empty-state-desc">Aquí aparecerán los abonos que hagan los clientes al reservar.</div>
+        </div>
+      <?php else: ?>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr><th>Referencia</th><th>Tipo</th><th>Cliente</th><th>Cita</th><th>Monto</th><th>Medio</th><th>Estado</th></tr>
+            </thead>
+            <tbody>
+            <?php foreach ($pagosUltimos as $pg): ?>
+              <tr>
+                <td style="font-size:12px;font-family:ui-monospace,monospace"><?= e($pg['reference']) ?></td>
+                <td><span class="pill"><?= e(etiquetaTipoPago($pg['kind'])) ?></span></td>
+                <td><?= e($pg['cliente']) ?></td>
+                <td style="font-size:12px;color:var(--muted)">
+                  <a class="fin-cita-link" href="/Blue/cita.php?id=<?= (int)$pg['appointment_id'] ?>">#<?= (int)$pg['appointment_id'] ?></a>
+                  · <?= e(date('d M Y', strtotime($pg['cita_fecha']))) ?>
+                  <?= e(formatTime($pg['cita_hora'])) ?>
+                </td>
+                <td style="font-weight:600"><?= e(formatPrice((float)$pg['amount'])) ?></td>
+                <td style="font-size:12px;color:var(--muted)"><?= e($pg['payment_method'] ?: '—') ?></td>
+                <td>
+                  <span class="badge badge-<?= $pg['status'] === 'approved' ? 'confirmed' : ($pg['status'] === 'pending' ? 'pending' : 'cancelled') ?>">
+                    <?= e(etiquetaEstadoPago($pg['status'])) ?>
+                  </span>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      <?php endif; ?>
+    </div></div>
+  <?php endif; ?>
+
+  <script>
+  // Copiar la URL de eventos para pegarla en el panel de Wompi.
+  document.querySelectorAll('.pci-copiar').forEach(function (boton) {
+    boton.addEventListener('click', async function () {
+      const texto = document.getElementById(boton.dataset.copiar).textContent.trim();
+      try { await navigator.clipboard.writeText(texto); } catch (e) { return; }
+      const original = boton.textContent;
+      boton.textContent = '¡Copiada!';
+      boton.classList.add('is-copiado');
+      setTimeout(function () { boton.textContent = original; boton.classList.remove('is-copiado'); }, 1800);
+    });
+  });
+  </script>
+<?php endif; ?>
+
+<!-- ══════ CORREO ══════ -->
+<?php if ($tab === 'mail'):
+    $mailCfg       = configCorreo();
+    $mailSmtp      = $mailCfg['smtp'] ?? [];
+    $mailActivo    = correoActivo();
+    $mailModoPrueba = correoEnModoPrueba();
+
+    // Últimos correos guardados en modo de prueba (logs/correos/), para poder
+    // revisar el contenido sin salir del panel ni tener una cuenta real todavía.
+    $ultimosCorreos = [];
+    $carpetaLogs = __DIR__ . '/../logs/correos';
+    if ($mailModoPrueba && is_dir($carpetaLogs)) {
+        $archivos = glob($carpetaLogs . '/*.txt') ?: [];
+        usort($archivos, fn($a, $b) => filemtime($b) <=> filemtime($a));
+        foreach (array_slice($archivos, 0, 8) as $ruta) {
+            $lineas = @file($ruta, FILE_IGNORE_NEW_LINES) ?: [];
+            $ultimosCorreos[] = [
+                'archivo' => basename($ruta),
+                'para'    => preg_replace('/^Para:\s*/', '', $lineas[0] ?? ''),
+                'asunto'  => preg_replace('/^Asunto:\s*/', '', $lineas[1] ?? ''),
+                'fecha'   => date('d/m/Y g:i A', filemtime($ruta)),
+            ];
+        }
+    }
+?>
+  <div class="settings-panel-head">
+    <div>
+      <h3>Correo</h3>
+      <p>El cliente marca en el paso de datos si quiere que le avisemos por correo; desde aquí se ve y se prueba esa conexión</p>
+    </div>
+    <?php
+      [$mailPillClase, $mailPillTexto] = !$mailActivo && !$mailModoPrueba ? ['is-off', 'Sin configurar']
+                                       : ($mailModoPrueba               ? ['is-demo', 'Modo de prueba']
+                                                                          : ['is-on', 'Activo']);
+    ?>
+    <span class="pago-estado-pill <?= $mailPillClase ?>"><?= $mailPillTexto ?></span>
+  </div>
+
+  <?php if ($mailModoPrueba): ?>
+    <div class="flash flash-info" style="margin-bottom:18px">
+      <span>En modo de prueba los correos no se envían de verdad: cada uno se guarda como archivo de texto en
+      <code>logs/correos/</code> (se ven abajo). El checkbox de avisos tampoco aparece en el sitio público mientras
+      esté así, para no prometerle al cliente algo que todavía no funciona.</span>
+    </div>
+  <?php endif; ?>
+
+  <div class="card"><div class="card-body">
+    <h4 class="pago-bloque-titulo">Conexión</h4>
+    <div class="pago-config-grid">
+      <div class="pago-config-item">
+        <span class="pci-label">Método</span>
+        <span class="pci-value">
+          <?= ['log' => 'Modo de prueba (archivo)', 'smtp' => 'Servidor SMTP', 'mail' => 'mail() de PHP'][$mailCfg['metodo'] ?? 'log'] ?? e((string)($mailCfg['metodo'] ?? '')) ?>
+        </span>
+      </div>
+      <div class="pago-config-item">
+        <span class="pci-label">Remitente</span>
+        <span class="pci-value"><?= e($mailCfg['remitente_nombre'] ?? '') ?> &lt;<?= e($mailCfg['remitente_email'] ?? '') ?>&gt;</span>
+      </div>
+      <?php if (($mailCfg['metodo'] ?? '') === 'smtp'): ?>
+        <div class="pago-config-item">
+          <span class="pci-label">Servidor</span>
+          <span class="pci-value pci-mono"><?= !empty($mailSmtp['host']) ? e($mailSmtp['host']) . ':' . (int)($mailSmtp['puerto'] ?? 587) : '— sin cargar —' ?></span>
+        </div>
+        <div class="pago-config-item">
+          <span class="pci-label">Seguridad</span>
+          <span class="pci-value"><?= ['tls' => 'STARTTLS', 'ssl' => 'SSL directo', '' => 'Sin cifrar'][$mailSmtp['seguridad'] ?? 'tls'] ?? e((string)($mailSmtp['seguridad'] ?? '')) ?></span>
+        </div>
+        <div class="pago-config-item">
+          <span class="pci-label">Usuario</span>
+          <span class="pci-value pci-mono"><?= !empty($mailSmtp['usuario']) ? e($mailSmtp['usuario']) : '— sin cargar —' ?></span>
+        </div>
+        <div class="pago-config-item">
+          <span class="pci-label">Contraseña</span>
+          <span class="pci-value"><?= !empty($mailSmtp['clave']) ? 'Cargada' : '— sin cargar —' ?></span>
+        </div>
+      <?php endif; ?>
+    </div>
+
+    <p class="form-hint" style="margin-top:18px">
+      Estos valores se editan en <code>config/mail.php</code> (o en <code>config/mail.local.php</code> para las
+      credenciales reales, que nunca se suben al repositorio). Con Gmail se necesita una
+      <em>contraseña de aplicación</em>, no la contraseña normal de la cuenta.
+    </p>
+  </div></div>
+
+  <!-- Correo de prueba -->
+  <div class="card diag-card"><div class="card-body">
+    <div class="diag-head">
+      <div>
+        <h4 class="pago-bloque-titulo">Correo de prueba</h4>
+        <p class="diag-intro">Se envía a tu propio correo (<?= e($me['email']) ?>) para comprobar que todo llega bien.</p>
+      </div>
+      <form method="POST">
+        <input type="hidden" name="action" value="probar_correo">
+        <input type="hidden" name="tab" value="mail">
+        <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+        <button type="submit" class="btn btn-primary diag-boton">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></svg>
+          Enviar correo de prueba
+        </button>
+      </form>
+    </div>
+  </div></div>
+
+  <!-- Últimos correos guardados en modo de prueba -->
+  <?php if ($mailModoPrueba): ?>
+    <div class="settings-panel-head" style="margin-top:26px">
+      <div>
+        <h3>Últimos correos (modo de prueba)</h3>
+        <p>Ninguno se envió de verdad; están guardados como texto en <code>logs/correos/</code></p>
+      </div>
+    </div>
+    <div class="card"><div class="card-body--flush">
+      <?php if (empty($ultimosCorreos)): ?>
+        <div class="empty-state">
+          <div class="empty-state-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></svg>
+          </div>
+          <div class="empty-state-title">Todavía no hay ninguno</div>
+          <div class="empty-state-desc">Aparecerán aquí cuando alguien reserve marcando "Avisos por correo", o al usar el botón de arriba.</div>
+        </div>
+      <?php else: ?>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Para</th><th>Asunto</th><th>Guardado</th></tr></thead>
+            <tbody>
+            <?php foreach ($ultimosCorreos as $c): ?>
+              <tr>
+                <td style="font-size:12.5px"><?= e($c['para']) ?></td>
+                <td><?= e($c['asunto']) ?></td>
+                <td style="color:var(--muted);font-size:12px;white-space:nowrap"><?= e($c['fecha']) ?></td>
+              </tr>
+            <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      <?php endif; ?>
+    </div></div>
+  <?php endif; ?>
 <?php endif; ?>
 
   </div><!-- /.settings-content -->

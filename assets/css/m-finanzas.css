@@ -274,3 +274,281 @@
     .profile-header  { flex-direction: column; text-align: center; }
     .settings-panel-head { align-items: flex-start; }
 }
+
+/* ════════════════════════════════════════════════════════════
+   CONFIGURACIÓN → PAGOS EN LÍNEA (Wompi)
+   ────────────────────────────────────────────────────────────
+   Mismos criterios de color que el apartado público de pagos
+   (booking.css): estados con los pares de los badges de admin.css,
+   grises de global.css y una tinta de teal con contraste AA.
+   ════════════════════════════════════════════════════════════ */
+:root {
+    --fp-teal-tinta:  #1c7068;
+    --fp-teal-chip:   rgba(91, 196, 184, .22);
+    --fp-teal-borde:  rgba(58, 168, 158, .5);
+    --fp-texto-2:     #4a6570;   /* --gray-600 */
+    --fp-borde:       #c8d9de;   /* --gray-200 */
+    --fp-superficie:  #f5f9fa;
+    --fp-ok-fondo:    #d1fae5;  --fp-ok-tinta:    #065f46;
+    --fp-aviso-fondo: #fef3c7;  --fp-aviso-tinta: #92400e;
+    --fp-error-fondo: #fee2e2;  --fp-error-tinta: #991b1b;
+    --fp-info-fondo:  #e0e7ff;  --fp-info-tinta:  #3730a3;
+}
+
+/* Píldora de estado de la pasarela */
+.pago-estado-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 14px;
+    border-radius: 50px;
+    border: 1.5px solid currentColor;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.pago-estado-pill::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+.pago-estado-pill.is-on   { color: var(--fp-ok-tinta);   background: var(--fp-ok-fondo); }
+.pago-estado-pill.is-demo { color: var(--fp-info-tinta); background: var(--fp-info-fondo); }
+.pago-estado-pill.is-off  { color: var(--fp-texto-2);    background: #f3f4f6; }
+
+/* Título de bloque dentro de la tarjeta */
+.pago-bloque-titulo {
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--fp-texto-2);
+    margin-bottom: 14px;
+}
+
+/* Ficha de datos de configuración (solo lectura) */
+.pago-config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+}
+.pago-config-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 13px 15px;
+    border: 1.5px solid var(--fp-borde);
+    border-radius: var(--radius, 12px);
+    background: var(--fp-superficie);
+}
+.pago-config-item.full { grid-column: 1 / -1; }
+
+.pci-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--fp-texto-2);
+    line-height: 1.4;
+}
+.pci-value {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--dark);
+    word-break: break-all;
+}
+.pci-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text);
+}
+.pci-copiable {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.pci-copiar {
+    padding: 5px 12px;
+    border: 1.5px solid var(--fp-teal-borde);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--fp-teal-tinta);
+    font-family: var(--font);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background var(--t), color var(--t);
+}
+.pci-copiar:hover,
+.pci-copiar.is-copiado { background: var(--fp-teal-tinta); border-color: var(--fp-teal-tinta); color: #fff; }
+
+/* Movimiento registrado por la pasarela, no por una persona */
+.pill-auto {
+    background: var(--fp-teal-chip);
+    color: var(--fp-teal-tinta);
+    font-weight: 700;
+}
+
+/* Enlace al detalle de la cita desde un movimiento o un pago */
+.fin-cita-link {
+    display: inline-block;
+    margin-left: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--fp-teal-tinta);
+    white-space: nowrap;
+    text-decoration: none;
+}
+.fin-cita-link:hover { text-decoration: underline; text-underline-offset: 2px; }
+
+/* ── Verificación de la cuenta ── */
+.diag-card { margin-bottom: 18px; border-top: 3px solid var(--teal); }
+.diag-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+.diag-head .pago-bloque-titulo { margin-bottom: 6px; }
+.diag-intro { margin: 0; font-size: 13.5px; color: var(--fp-texto-2); }
+.diag-boton svg { width: 15px; height: 15px; }
+
+/* Pasos antes de la primera verificación */
+.diag-pasos {
+    margin: 18px 0 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: paso;
+}
+.diag-pasos li {
+    position: relative;
+    counter-increment: paso;
+    padding: 11px 0 11px 42px;
+    border-top: 1px solid var(--border);
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--text);
+}
+.diag-pasos li:first-child { border-top: none; }
+.diag-pasos li::before {
+    content: counter(paso);
+    position: absolute;
+    left: 0;
+    top: 9px;
+    width: 27px;
+    height: 27px;
+    border-radius: 50%;
+    background: var(--fp-teal-chip);
+    color: var(--fp-teal-tinta);
+    font-size: 12.5px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.diag-pasos strong { color: var(--dark); }
+
+/* Resultado de la verificación */
+.diag-resumen {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 18px 0 12px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1.5px solid currentColor;
+    border-left-width: 5px;
+}
+.diag-resumen--ok    { background: var(--fp-ok-fondo);    color: var(--fp-ok-tinta); }
+.diag-resumen--error { background: var(--fp-error-fondo); color: var(--fp-error-tinta); }
+.diag-resumen-icono {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: currentColor;          /* círculo del color del estado… */
+    -webkit-text-fill-color: #fff;     /* …con el símbolo en blanco encima */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 16px;
+    font-weight: 700;
+}
+.diag-resumen strong { display: block; font-size: 14.5px; }
+.diag-resumen span   { font-size: 12.5px; }
+
+.diag-viejo {
+    margin: 0 0 12px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    background: var(--fp-aviso-fondo);
+    color: var(--fp-aviso-tinta);
+    font-size: 12.5px;
+    font-weight: 700;
+}
+
+.diag-grupo { margin-top: 14px; }
+.diag-grupo-titulo {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--fp-texto-2);
+    margin-bottom: 6px;
+}
+.diag-lista {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border: 1.5px solid var(--fp-borde);
+    border-radius: 12px;
+    overflow: hidden;
+}
+.diag-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+    background: #fff;
+}
+.diag-item:last-child { border-bottom: none; }
+.diag-item--error { background: #fff7f7; }
+.diag-icono {
+    width: 23px;
+    height: 23px;
+    border-radius: 50%;
+    border: 1.5px solid currentColor;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+    font-size: 11.5px;
+    font-weight: 700;
+}
+.diag-item--ok      .diag-icono { background: var(--fp-ok-fondo);    color: var(--fp-ok-tinta); }
+.diag-item--aviso   .diag-icono { background: var(--fp-aviso-fondo); color: var(--fp-aviso-tinta); }
+.diag-item--error   .diag-icono { background: var(--fp-error-fondo); color: var(--fp-error-tinta); }
+.diag-item--omitido .diag-icono { background: #f3f4f6;               color: var(--fp-texto-2); }
+.diag-texto {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text);
+}
+.diag-texto strong {
+    display: block;
+    font-size: 13.5px;
+    color: var(--dark);
+    margin-bottom: 1px;
+}
+
+@media (max-width: 640px) {
+    .pago-config-grid { grid-template-columns: 1fr; }
+    .diag-head { flex-direction: column; align-items: stretch; }
+    .diag-boton { width: 100%; justify-content: center; }
+}

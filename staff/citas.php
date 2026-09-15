@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/session.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/h-agenda.php';
+require_once __DIR__ . '/../includes/h-pagos.php';
 
 requireLogin('/Blue/login.php');
 $db   = getDB();
@@ -36,6 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db->prepare("UPDATE appointments SET status=? WHERE id=?")->execute([$map[$action], $id]);
                 if ($action === 'complete') registrarIngresoCita($db, $id, $myId);
                 $db->commit();
+                avisarPorCorreoSiCorresponde($db, $id, ['confirm' => 'confirmada', 'complete' => 'completada', 'cancel' => 'cancelada'][$action]);
                 setFlash('success', 'Cita actualizada.');
             }
         }
@@ -67,6 +69,9 @@ $rows = $db->prepare("
     ORDER BY a.date DESC, a.time_start DESC");
 $rows->execute($args);
 $citas = $rows->fetchAll();
+
+// Abonos y saldos ya cobrados de estas citas (una sola consulta).
+$pagadoPorCita = pagosPorCita($db, array_column($citas, 'id'));
 
 $clientes  = obtenerClientes($db);
 $servicios = obtenerServiciosActivos($db);
@@ -100,6 +105,7 @@ require_once __DIR__ . '/_layout.php';
     $icoCheck  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
     $icoDone   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
     $icoEdit   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+    $icoPago   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>';
     $icoTrash  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>';
   ?>
     <div class="table-wrap"><table class="data-table">
@@ -117,7 +123,11 @@ require_once __DIR__ . '/_layout.php';
             <div><div class="client-name"><?= e($a['client_name']) ?></div><div class="client-phone"><?= e($a['client_phone']) ?></div></div></div></td>
           <td style="max-width:200px"><?= e($a['services'] ?? '—') ?></td>
           <td><div><?= date('d M Y', strtotime($a['date'])) ?></div><div style="color:var(--muted);font-size:12px"><?= date('g:i A', strtotime($a['time_start'])) ?></div></td>
-          <td style="font-weight:600"><?= formatPrice((float)$a['total_price']) ?></td>
+          <td style="font-weight:600">
+            <?= formatPrice((float)$a['total_price']) ?>
+            <?php $insignia = insigniaPagoCita((float)$a['total_price'], (float)($pagadoPorCita[$a['id']] ?? 0)); ?>
+            <?php if ($insignia): ?><div style="margin-top:5px;font-weight:500"><?= $insignia ?></div><?php endif; ?>
+          </td>
           <td><?= badgeEstadoCita($a['status']) ?></td>
           <td>
             <div class="rowmenu">
@@ -130,6 +140,7 @@ require_once __DIR__ . '/_layout.php';
                 <?php elseif ($a['status'] === 'confirmed'): ?>
                   <?= botonAccionCita('complete', $a['id'], $returnQs, 'primary', 'Marcar atendida', '¿Marcar como atendida?', $icoDone) ?>
                 <?php endif; ?>
+                <a class="rowmenu-item" href="/Blue/cita.php?id=<?= (int)$a['id'] ?>"><?= $icoPago ?>Ver estado y pagos</a>
                 <button class="rowmenu-item" onclick='openEditarCita(<?= json_encode($data, JSON_HEX_APOS|JSON_HEX_QUOT) ?>)'><?= $icoEdit ?>Editar</button>
                 <div class="rowmenu-sep"></div>
                 <?= botonAccionCita('delete', $a['id'], $returnQs, 'danger', 'Eliminar', '¿Eliminar esta cita?', $icoTrash) ?>

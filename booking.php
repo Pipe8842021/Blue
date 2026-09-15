@@ -2,6 +2,8 @@
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/includes/session.php';
 require_once __DIR__ . '/includes/functions.php';
+require_once __DIR__ . '/includes/h-pagos.php';
+require_once __DIR__ . '/includes/h-correo.php';
 
 // Cabeceras de seguridad
 header('X-Frame-Options: DENY');
@@ -30,6 +32,28 @@ try {
 }
 
 $catIcons = ['body'=>'🫀','face'=>'✨','laser'=>'💫','spa'=>'🌿','therapy'=>'🔬'];
+
+// ── Pago del abono ────────────────────────────────────────
+// Si la pasarela no tiene llaves configuradas, el wizard sigue
+// funcionando como siempre: envía la solicitud y el equipo confirma.
+$pagoActivo = pagosEnLineaActivos();
+$cfgAbono   = configPagos()['abono'] ?? [];
+$pagoJs     = [
+    'activo'      => $pagoActivo,
+    'obligatorio' => abonoEsObligatorio(),
+    'porcentaje'  => (float)($cfgAbono['porcentaje']  ?? 30),
+    'minimo'      => (float)($cfgAbono['minimo']      ?? 0),
+    'maximo'      => (float)($cfgAbono['maximo']      ?? 0),
+    'redondearA'  => (float)($cfgAbono['redondear_a'] ?? 0),
+    'minutos'     => (int)(configPagos()['minutos_reserva'] ?? 20),
+    'demo'        => $pagoActivo && pagosEnModoDemo(),
+];
+
+// ── Aviso por correo ───────────────────────────────────────
+// El checkbox solo se muestra si de verdad hay cómo enviar el correo
+// (SMTP real o mail() de PHP). En modo de prueba (sin cuenta configurada
+// todavía) se oculta, igual que el pago cuando no hay llaves de Wompi.
+$correoActivo = correoActivo();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -67,6 +91,12 @@ $catIcons = ['body'=>'🫀','face'=>'✨','laser'=>'💫','spa'=>'🌿','therapy
   <div class="booking-hero-eyebrow">Reserva en línea</div>
   <h1>Agenda tu <span class="accent">cita</span></h1>
   <p>Elige tu servicio, escoge tu horario y listo — sin llamadas, sin esperas</p>
+  <?php if ($pagoActivo): ?>
+    <div class="booking-hero-badge">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      Separa tu cita pagando solo el <?= e(rtrim(rtrim(number_format($pagoJs['porcentaje'], 1, ',', '.'), '0'), ',')) ?>% — confirmación inmediata
+    </div>
+  <?php endif; ?>
 </div>
 
 <!-- ── Booking wizard ── -->
@@ -81,7 +111,7 @@ $catIcons = ['body'=>'🫀','face'=>'✨','laser'=>'💫','spa'=>'🌿','therapy
   <div class="progress-nav" id="progress-nav">
 
     <?php
-    $stepLabels = [1 => 'Servicio', 2 => 'Horario', 3 => 'Datos', 4 => 'Confirmación'];
+    $stepLabels = [1 => 'Servicio', 2 => 'Horario', 3 => 'Datos', 4 => $pagoActivo ? 'Pago' : 'Confirmación'];
     $checkSvg   = '<svg class="p-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>';
     foreach ($stepLabels as $n => $label):
     ?>
@@ -268,14 +298,70 @@ $catIcons = ['body'=>'🫀','face'=>'✨','laser'=>'💫','spa'=>'🌿','therapy
           <span>Te enviaremos un mensaje de confirmación y recordatorio a tu número.</span>
         </div>
       </label>
+
+      <?php if ($correoActivo): ?>
+      <!-- Solo tiene sentido con un correo escrito: booking.js la muestra/oculta según ese campo. -->
+      <label class="whatsapp-label" id="email-reminder-label" style="display:none;margin-top:12px">
+        <input type="checkbox" id="f-email-reminder" checked>
+        <div class="whatsapp-toggle"></div>
+        <div class="whatsapp-text">
+          <strong>Avisos por correo</strong>
+          <span>Te escribiremos cuando cambie el estado de tu cita o de tu pago.</span>
+        </div>
+      </label>
+      <?php endif; ?>
     </form>
   </div>
 
-  <!-- ═══ STEP 4: Confirmación ═══ -->
+  <!-- ═══ STEP 4: Pago del abono / Confirmación ═══ -->
   <div class="step-panel" id="step-4">
 
+    <?php if ($pagoActivo): ?>
+    <!-- Pago del abono (el resumen lo arma booking.js) -->
+    <div id="s4-pago">
+      <div class="step-heading">
+        <div class="step-eyebrow">Paso 4 de 4</div>
+        <div class="step-title">Separa tu cita con un abono</div>
+        <div class="step-subtitle">Pagas solo una parte ahora para reservar tu horario; el saldo lo cancelas en el centro el día de tu cita.</div>
+      </div>
+
+      <div class="pago-resumen" id="pago-resumen"></div>
+
+      <div class="pago-aviso">
+        <span class="pago-aviso-icon">⏱</span>
+        <div>
+          <strong>Te guardamos el horario <?= (int)$pagoJs['minutos'] ?> minutos</strong>
+          Si el pago no se completa en ese tiempo, el cupo vuelve a quedar disponible para otras personas.
+        </div>
+      </div>
+
+      <?php if ($pagoJs['demo']): ?>
+        <div class="pago-demo" role="note">
+          <span class="pago-demo-tag">Modo demostración</span>
+          Así verán el pago tus clientes. Para cobrar de verdad falta conectar la cuenta de Wompi.
+        </div>
+      <?php endif; ?>
+
+      <button class="btn-pagar" id="btn-pagar" <?= $pagoJs['demo'] ? 'disabled' : '' ?>>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        <span id="btn-pagar-label">Pagar abono</span>
+      </button>
+
+      <?php if (!$pagoJs['obligatorio']): ?>
+        <button type="button" class="pago-alterno" id="btn-sin-pago">
+          Prefiero que me contacten para coordinar el pago
+        </button>
+      <?php endif; ?>
+
+      <p class="pago-legal">
+        Te llevaremos al checkout seguro de <strong>Wompi</strong>. Aceptamos tarjetas débito y crédito, PSE, Nequi y Bancolombia.
+        Blue Therapy no almacena los datos de tu medio de pago.
+      </p>
+    </div>
+    <?php endif; ?>
+
     <!-- Enviando -->
-    <div id="s4-sending" style="text-align:center;padding:40px 0">
+    <div id="s4-sending" style="display:none;text-align:center;padding:40px 0">
       <div class="spinner" style="margin:0 auto 16px;width:40px;height:40px;border-width:4px"></div>
       <p style="color:#999;font-size:14px">Enviando tu solicitud…</p>
     </div>
@@ -295,7 +381,12 @@ $catIcons = ['body'=>'🫀','face'=>'✨','laser'=>'💫','spa'=>'🌿','therapy
           El equipo de Blue Therapy revisará tu solicitud y se pondrá en contacto contigo por WhatsApp al número que indicaste para confirmar la cita, coordinar el anticipo si aplica y cualquier detalle adicional.
         </div>
       </div>
-      <a href="/Blue/" class="btn-home">← Volver al inicio</a>
+      <div class="pago-acciones">
+        <a href="#" id="s4-status-link" class="btn-home btn-home--primary" style="display:none">
+          Ver el estado de mi cita
+        </a>
+        <a href="/Blue/" class="btn-home">← Volver al inicio</a>
+      </div>
     </div>
 
     <!-- Error -->
@@ -367,6 +458,10 @@ $catIcons = ['body'=>'🫀','face'=>'✨','laser'=>'💫','spa'=>'🌿','therapy
 </div><!-- /booking-layout -->
 </div><!-- /booking-wrapper -->
 
-<script src="/Blue/assets/js/booking.js"></script>
+<script>
+// Reglas del abono que usa booking.js (las mismas de config/wompi.php).
+window.BLUE_PAGOS = <?= json_encode($pagoJs, JSON_UNESCAPED_UNICODE) ?>;
+</script>
+<script src="/Blue/assets/js/booking.js?v=<?= @filemtime(__DIR__ . '/assets/js/booking.js') ?>"></script>
 </body>
 </html>

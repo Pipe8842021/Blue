@@ -16,6 +16,14 @@ const MONTH_NAMES = ['enero','febrero','marzo','abril','mayo','junio',
                      'julio','agosto','septiembre','octubre','noviembre','diciembre'];
 const MONTH_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
+// ── Pasarela de pago ───────────────────────────────────────
+// Lo inyecta booking.php desde config/wompi.php. Si no hay llaves
+// configuradas, `activo` llega en false y el wizard funciona como antes.
+const PAGOS = Object.assign(
+  { activo: false, obligatorio: false, porcentaje: 30, minimo: 0, maximo: 0, redondearA: 0, minutos: 20, demo: false },
+  window.BLUE_PAGOS || {}
+);
+
 // ── Booking state ──────────────────────────────────────────
 const booking = {
   step: 1,
@@ -24,7 +32,7 @@ const booking = {
   date: null,            // "YYYY-MM-DD"
   timeStart: null,       // "HH:MM"
   timeEnd: null,         // "HH:MM"
-  name: '', phone: '', email: '', note: '', whatsapp: true
+  name: '', phone: '', email: '', note: '', whatsapp: true, emailReminder: false
 };
 
 let busySlots  = [];         // [{date, time_start, time_end}]
@@ -74,6 +82,30 @@ function fmtDate(iso) {
 
 function fmtPrice(n) {
   return '$' + parseInt(n).toLocaleString('es-CO');
+}
+
+// Todo lo que se arme con innerHTML pasa por aquí: los nombres de servicio
+// y los datos que escribe el cliente no deben poder inyectar etiquetas.
+function escHtml(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
+// ── Abono ──────────────────────────────────────────────────
+// Misma regla que calcularAbonoReserva() en includes/h-pagos.php.
+// Aquí es solo para mostrar: el monto que se cobra lo calcula el servidor.
+function calcularAbono(total) {
+  let abono = total * PAGOS.porcentaje / 100;
+  if (PAGOS.redondearA > 0) abono = Math.ceil(abono / PAGOS.redondearA) * PAGOS.redondearA;
+  if (PAGOS.minimo > 0 && abono < PAGOS.minimo) abono = PAGOS.minimo;
+  if (PAGOS.maximo > 0 && abono > PAGOS.maximo) abono = PAGOS.maximo;
+  if (total > 0 && abono > total) abono = total;
+  return Math.round(abono);
+}
+
+function totalServicios() {
+  return booking.services.reduce((suma, s) => suma + s.price, 0);
 }
 
 // ── Time slot list ─────────────────────────────────────────
@@ -345,7 +377,7 @@ function clearFieldError(inputId) {
 // ── Step 3 helpers ─────────────────────────────────────────
 function buildBookingSummaryBar() {
   const bsb = document.getElementById('bsb');
-  const svcNames = booking.services.map(s => s.name).join(', ');
+  const svcNames = booking.services.map(s => escHtml(s.name)).join(', ');
   bsb.innerHTML = `
     <div class="bsb-item">
       <span class="bsb-label">Servicio${booking.services.length > 1 ? 's' : ''}</span>
@@ -390,40 +422,161 @@ function validateStep3() {
   return ok;
 }
 
-// ── Step 4: submit ─────────────────────────────────────────
-async function submitBooking() {
+// Pasa el formulario del paso 3 al estado de la reserva.
+function guardarDatosContacto() {
   booking.name     = document.getElementById('f-name').value.trim();
   booking.phone    = document.getElementById('f-phone').value.trim();
   booking.email    = document.getElementById('f-email').value.trim();
   booking.note     = document.getElementById('f-note').value.trim();
   booking.whatsapp = document.getElementById('f-whatsapp').checked;
+  // Sin correo escrito el checkbox queda oculto (o no existe si la pasarela
+  // de correo no está activa): en ambos casos no hay a dónde avisar.
+  const chkCorreo = document.getElementById('f-email-reminder');
+  booking.emailReminder = !!(booking.email && chkCorreo && chkCorreo.checked);
+}
+
+// Cuerpo que esperan api/book.php y api/pago_iniciar.php.
+function datosReserva() {
+  return {
+    services:       booking.services.map(s => s.id),
+    date:           booking.date,
+    time_start:     booking.timeStart,
+    time_end:       booking.timeEnd,
+    name:           booking.name,
+    phone:          booking.phone,
+    email:          booking.email,
+    note:           booking.note,
+    whatsapp:       booking.whatsapp,
+    email_reminder: booking.emailReminder,
+  };
+}
+
+// Muestra u oculta el checkbox de avisos por correo según si hay un correo escrito.
+function actualizarToggleCorreo() {
+  const etiqueta = document.getElementById('email-reminder-label');
+  if (!etiqueta) return; // la pasarela de correo no está activa: ni siquiera se imprimió
+  const hayCorreo = document.getElementById('f-email').value.trim() !== '';
+  etiqueta.style.display = hayCorreo ? '' : 'none';
+}
+
+function tokenCsrf() {
+  return document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+}
+
+// ══════════════════════════════════════════════════════════
+//   PASO 4 · CON PASARELA — abono en línea (Wompi)
+// ══════════════════════════════════════════════════════════
+
+// Arma el resumen del abono y deja listo el botón de pago.
+function mostrarPanelPago() {
+  const panel = document.getElementById('s4-pago');
+  if (!panel) return;
+
+  document.getElementById('s4-sending').style.display = 'none';
+  document.getElementById('s4-success').style.display = 'none';
+  document.getElementById('s4-error').style.display   = 'none';
+  panel.style.display = 'block';
+
+  const total = totalServicios();
+  const abono = calcularAbono(total);
+  const saldo = Math.max(0, total - abono);
+
+  document.getElementById('pago-resumen').innerHTML = `
+    <div class="pr-cita">
+      <div class="pr-cita-titulo">${booking.services.length > 1 ? 'Tus servicios' : 'Tu servicio'}</div>
+      ${booking.services.map(s => `
+        <div class="pr-linea">
+          <span class="pr-linea-nombre">${escHtml(s.name)}<em>${s.duration} min</em></span>
+          <span class="pr-linea-precio">${fmtPrice(s.price)}</span>
+        </div>`).join('')}
+      <div class="pr-slot">
+        <span class="pr-slot-icon">📅</span>
+        <div>
+          <strong>${escHtml(fmtDate(booking.date))}</strong>
+          <span>${fmtTime(booking.timeStart)} – ${fmtTime(booking.timeEnd)}</span>
+        </div>
+      </div>
+    </div>
+    <div class="pr-montos">
+      <div class="pr-monto">
+        <span>Total de los servicios</span><span>${fmtPrice(total)}</span>
+      </div>
+      <div class="pr-monto pr-monto--abono">
+        <span>Abono para reservar <em>${PAGOS.porcentaje}%</em></span><span>${fmtPrice(abono)}</span>
+      </div>
+      <div class="pr-monto pr-monto--saldo">
+        <span>Saldo el día de la cita</span><span>${fmtPrice(saldo)}</span>
+      </div>
+    </div>`;
+
+  document.getElementById('btn-pagar-label').textContent = `Pagar ${fmtPrice(abono)} con Wompi`;
+  // En modo demostración el botón queda visible pero inactivo: no hay cuenta con qué cobrar.
+  document.getElementById('btn-pagar').disabled = PAGOS.demo === true;
+}
+
+// Aparta el horario en el servidor y manda al checkout de Wompi.
+async function iniciarPago() {
+  const btn   = document.getElementById('btn-pagar');
+  const label = document.getElementById('btn-pagar-label');
+  btn.disabled      = true;
+  label.textContent = 'Abriendo la pasarela…';
+
+  guardarDatosContacto();
+
+  try {
+    const res = await fetch('/Blue/api/pago_iniciar.php', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': tokenCsrf() },
+      body:    JSON.stringify(datosReserva()),
+    });
+    const data = await res.json();
+
+    if (data.success && data.checkout_url) {
+      // El cupo ya quedó apartado: la disponibilidad en cache queda vieja.
+      cachedWeek = null;
+      window.location.href = data.checkout_url;
+      return;
+    }
+    mostrarErrorPago(data.error || 'No pudimos abrir la pasarela de pago.');
+
+  } catch (e) {
+    mostrarErrorPago('Error de conexión. Por favor intenta de nuevo.');
+  }
+}
+
+function mostrarErrorPago(mensaje) {
+  const panel = document.getElementById('s4-pago');
+  if (panel) panel.style.display = 'none';
+  document.getElementById('step-actions').style.display = 'none';
+  document.getElementById('s4-error-msg').textContent   = mensaje;
+  document.getElementById('s4-error').style.display     = 'block';
+
+  const btn = document.getElementById('btn-pagar');
+  if (btn) {
+    btn.disabled = false;
+    document.getElementById('btn-pagar-label').textContent = 'Pagar abono';
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//   PASO 4 · SIN PASARELA — solicitud que confirma el equipo
+// ══════════════════════════════════════════════════════════
+async function submitBooking() {
+  guardarDatosContacto();
 
   // Show sending state
+  const panelPago = document.getElementById('s4-pago');
+  if (panelPago) panelPago.style.display = 'none';
   document.getElementById('s4-sending').style.display = 'block';
   document.getElementById('s4-success').style.display = 'none';
   document.getElementById('s4-error').style.display   = 'none';
   document.getElementById('step-actions').style.display = 'none';
 
-  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
-
   try {
     const res  = await fetch('/Blue/api/book.php', {
       method:  'POST',
-      headers: {
-        'Content-Type':  'application/json',
-        'X-CSRF-Token':  csrfToken,
-      },
-      body:    JSON.stringify({
-        services:   booking.services.map(s => s.id),
-        date:       booking.date,
-        time_start: booking.timeStart,
-        time_end:   booking.timeEnd,
-        name:       booking.name,
-        phone:      booking.phone,
-        email:      booking.email,
-        note:       booking.note,
-        whatsapp:   booking.whatsapp,
-      })
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': tokenCsrf() },
+      body:    JSON.stringify(datosReserva()),
     });
     const data = await res.json();
 
@@ -432,6 +585,13 @@ async function submitBooking() {
     if (data.success) {
       cachedWeek = null; // invalidate: this slot is now taken
       buildConfirmDetails();
+
+      // Enlace privado con el que el cliente consulta su cita cuando quiera.
+      const enlace = document.getElementById('s4-status-link');
+      if (enlace && data.status_url) {
+        enlace.href = data.status_url;
+        enlace.style.display = '';
+      }
       document.getElementById('s4-success').style.display = 'block';
     } else {
       document.getElementById('s4-error-msg').textContent = data.error || 'Error al procesar tu solicitud.';
@@ -448,15 +608,15 @@ async function submitBooking() {
 
 function buildConfirmDetails() {
   const d = document.getElementById('s4-details');
-  const svcNames = booking.services.map(s => s.name).join(', ');
+  const svcNames = booking.services.map(s => escHtml(s.name)).join(', ');
   d.innerHTML = `
     <div class="cd-item">
       <span class="cd-label">Nombre</span>
-      <span class="cd-value">${booking.name}</span>
+      <span class="cd-value">${escHtml(booking.name)}</span>
     </div>
     <div class="cd-item">
       <span class="cd-label">WhatsApp</span>
-      <span class="cd-value">${booking.phone}</span>
+      <span class="cd-value">${escHtml(booking.phone)}</span>
     </div>
     <div class="cd-item">
       <span class="cd-label">Servicio${booking.services.length > 1 ? 's' : ''}</span>
@@ -497,7 +657,7 @@ function updateSidebar() {
     html += `
       <div class="sidebar-service-item">
         <div>
-          <div class="ssi-name">${s.name}</div>
+          <div class="ssi-name">${escHtml(s.name)}</div>
           <div class="ssi-meta">${s.duration} min</div>
         </div>
         <div class="ssi-price">${fmtPrice(s.price)}</div>
@@ -522,6 +682,22 @@ function updateSidebar() {
       <span class="st-price">${fmtPrice(total)}</span>
     </div>`;
 
+  // Con pasarela activa se muestra qué se paga ahora y qué queda pendiente.
+  if (PAGOS.activo && total > 0) {
+    const abono = calcularAbono(total);
+    html += `
+      <div class="sidebar-abono">
+        <div class="sab-fila sab-fila--destacada">
+          <span>Abono para reservar</span>
+          <span>${fmtPrice(abono)}</span>
+        </div>
+        <div class="sab-fila">
+          <span>Saldo el día de la cita</span>
+          <span>${fmtPrice(Math.max(0, total - abono))}</span>
+        </div>
+      </div>`;
+  }
+
   body.innerHTML = html;
 }
 
@@ -543,22 +719,33 @@ function goToStep(n) {
 
   booking.step = n;
 
-  // Back button
+  // Back button — en el paso de pago todavía se puede volver a corregir datos.
   const btnBack = document.getElementById('btn-back');
-  btnBack.style.visibility = n > 1 && n < 4 ? 'visible' : 'hidden';
+  btnBack.style.visibility = n > 1 && (n < 4 || PAGOS.activo) ? 'visible' : 'hidden';
 
   // Next button
   const btnNext  = document.getElementById('btn-next');
   const btnLabel = document.getElementById('btn-next-label');
-  if (n === 3) {
-    btnLabel.textContent = 'Confirmar reserva';
-  } else if (n === 4) {
-    document.getElementById('step-actions').style.display = 'none';
+  const acciones = document.getElementById('step-actions');
+
+  if (n === 4) {
+    if (PAGOS.activo) {
+      // El botón de pagar vive dentro del panel; aquí solo queda "Atrás".
+      btnNext.style.display  = 'none';
+      acciones.style.display = 'flex';
+      mostrarPanelPago();
+    } else {
+      acciones.style.display = 'none';
+    }
+    window.scrollTo({top: 0, behavior: 'smooth'});
     return;
-  } else {
-    btnLabel.textContent = 'Continuar';
   }
-  document.getElementById('step-actions').style.display = 'flex';
+
+  btnNext.style.display = '';
+  btnLabel.textContent  = n === 3
+    ? (PAGOS.activo ? 'Continuar al pago' : 'Confirmar reserva')
+    : 'Continuar';
+  acciones.style.display = 'flex';
   updateNextBtn();
 
   // Step-specific side effects
@@ -566,6 +753,7 @@ function goToStep(n) {
     loadAvailability();
   } else if (n === 3) {
     buildBookingSummaryBar();
+    actualizarToggleCorreo(); // por si el navegador autocompletó el correo sin disparar 'input'
   }
 
   window.scrollTo({top: 0, behavior: 'smooth'});
@@ -604,8 +792,9 @@ document.getElementById('btn-next').addEventListener('click', () => {
   const n = booking.step;
   if (n === 3) {
     if (!validateStep3()) return;
+    guardarDatosContacto();
     goToStep(4);
-    submitBooking();
+    if (!PAGOS.activo) submitBooking();
   } else if (n < 4) {
     goToStep(n + 1);
   }
@@ -641,6 +830,10 @@ document.getElementById('f-phone')?.addEventListener('blur', function () {
   });
 });
 
+// Aparece/desaparece junto con lo que escriba en el correo (incluye el
+// autocompletado del navegador, que dispara 'input' igual que si tecleara).
+document.getElementById('f-email')?.addEventListener('input', actualizarToggleCorreo);
+
 // ── Category filter tabs ───────────────────────────────────
 function initServiceFilters() {
   document.querySelectorAll('.sf-tab').forEach(tab => {
@@ -656,6 +849,11 @@ function initServiceFilters() {
 }
 
 // ── Init ──────────────────────────────────────────────────
+document.getElementById('btn-pagar')?.addEventListener('click', iniciarPago);
+
+// Solo existe cuando el abono está configurado como opcional.
+document.getElementById('btn-sin-pago')?.addEventListener('click', submitBooking);
+
 initServiceCards();
 initServiceFilters();
 updateNextBtn();
