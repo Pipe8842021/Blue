@@ -97,6 +97,20 @@ function guardarCita(PDO $db, array $in, ?int $forcedStaffId, int $actorId): arr
     $timeStart = $in['time_start'] ?? '';
     if (!preg_match('/^\d{2}:\d{2}/', $timeStart))     return ['ok' => false, 'msg' => 'La hora no es válida.'];
 
+    // Duración total y regla de la valoración, a partir de los servicios.
+    // Va antes de crear el cliente: si la cita se rechaza, no queda nada a medias.
+    $ph  = implode(',', array_fill(0, count($services), '?'));
+    $q   = $db->prepare("SELECT COALESCE(SUM(duration_min),0) AS dur, COALESCE(SUM(is_assessment),0) AS valoraciones
+                         FROM services WHERE id IN ($ph)");
+    $q->execute(array_values($services));
+    $svc = $q->fetch();
+    $dur = max(15, (int)$svc['dur']);
+
+    // La valoración va sola: primero se valora al cliente y después se agenda el procedimiento.
+    if ((int)$svc['valoraciones'] > 0 && count($services) > 1) {
+        return ['ok' => false, 'msg' => 'La cita de valoración se agenda sola: quita los demás servicios.'];
+    }
+
     // Cliente: existente o nuevo
     $clientId = (int)($in['client_id'] ?? 0);
     if ($clientId === 0) {
@@ -113,11 +127,7 @@ function guardarCita(PDO $db, array $in, ?int $forcedStaffId, int $actorId): arr
     // Estado
     $status = in_array($in['status'] ?? '', ['pending','confirmed','completed','cancelled'], true) ? $in['status'] : 'pending';
 
-    // Duración total a partir de los servicios
-    $ph  = implode(',', array_fill(0, count($services), '?'));
-    $q   = $db->prepare("SELECT COALESCE(SUM(duration_min),0) FROM services WHERE id IN ($ph)");
-    $q->execute(array_values($services));
-    $dur = max(15, (int)$q->fetchColumn());
+
 
     $timeStart = substr($timeStart, 0, 5) . ':00';
     $timeEnd   = date('H:i:s', strtotime($timeStart) + $dur * 60);

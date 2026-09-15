@@ -24,6 +24,16 @@ ALTER TABLE services ADD COLUMN IF NOT EXISTS image VARCHAR(255) NULL AFTER desc
 ALTER TABLE services ADD COLUMN IF NOT EXISTS featured TINYINT(1) NOT NULL DEFAULT 0 AFTER active;
 
 -- ------------------------------------------------------------
+-- Servicios: cita de valoración
+--   is_assessment → 1 = cita de valoración. No tiene costo (precio 0),
+--                   no pasa por la pasarela de pagos y se agenda SOLA:
+--                   primero se valora al cliente y después pide una
+--                   cita nueva para su procedimiento.
+-- ------------------------------------------------------------
+ALTER TABLE services ADD COLUMN IF NOT EXISTS is_assessment TINYINT(1) NOT NULL DEFAULT 0
+    COMMENT '1 = cita de valoración (sin costo, se agenda sola)' AFTER featured;
+
+-- ------------------------------------------------------------
 -- Galería: una fila por imagen, con su categoría
 --   file     → nombre del archivo en assets/img/gallery/
 --   category → categoría libre de la galería (ej. Instalaciones,

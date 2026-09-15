@@ -1009,6 +1009,7 @@
 
 .form-group input,
 .form-group textarea {
+  box-sizing: border-box;
   width: 100%;
   padding: 13px 16px;
   border: 1.5px solid var(--border);
@@ -2337,3 +2338,42 @@
   .cita-enlace { flex-direction: column; }
   .cita-enlace button { width: 100%; }
 }
+
+/* ── Cita de valoración (sin costo, se agenda sola) ──────────
+   booking.js marca .is-locked los demás servicios al elegirla. */
+.service-card-valoracion { color: var(--teal-tinta); }
+.service-card-price--gratis { color: var(--teal-tinta); }
+
+.service-option.is-locked {
+  opacity: .45;
+  cursor: not-allowed;
+}
+.service-option.is-locked:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--border);
+}
+.service-option.is-locked .service-card-add { visibility: hidden; }
+
+.valoracion-aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--teal-light);
+  border: 1px solid var(--teal-glow);
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.valoracion-aviso[hidden] { display: none; }
+.valoracion-aviso svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--teal-tinta);
+}
+.valoracion-aviso strong { color: var(--teal-tinta); }

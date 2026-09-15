@@ -281,12 +281,12 @@ $flash = getFlash();
           <?php foreach ($servicios as $s): ?>
             <div class="cs-fila">
               <span class="cs-nombre"><?= e($s['name']) ?><em><?= (int)$s['duration_min'] ?> min</em></span>
-              <span class="cs-precio"><?= e(formatPrice((float)$s['price'])) ?></span>
+              <span class="cs-precio"><?= (float)$s['price'] > 0 ? e(formatPrice((float)$s['price'])) : 'Sin costo' ?></span>
             </div>
           <?php endforeach; ?>
           <div class="cs-fila cs-fila--total">
             <span>Total</span>
-            <span><?= e(formatPrice($total)) ?></span>
+            <span><?= $total > 0 ? e(formatPrice($total)) : 'Sin costo' ?></span>
           </div>
         </div>
       <?php endif; ?>
@@ -295,6 +295,17 @@ $flash = getFlash();
     <!-- ══ Estado de los pagos ══ -->
     <div class="cita-bloque">
       <h2 class="cita-bloque-titulo">Pagos</h2>
+
+      <?php if ($total <= 0): ?>
+        <!-- Cita sin costo (la valoración): no hay abono ni saldo que mostrar -->
+        <div class="cita-aviso cita-aviso--ok">
+          <span class="cita-aviso-icon">✓</span>
+          <div>
+            <strong>Esta cita no tiene costo</strong>
+            No requiere abono ni pago en el centro.
+          </div>
+        </div>
+      <?php else: ?>
 
       <div class="pago-montos">
         <div class="pago-monto">
@@ -332,6 +343,8 @@ $flash = getFlash();
           </div>
         </div>
       <?php endif; ?>
+
+      <?php endif; /* $total > 0 */ ?>
 
       <!-- Historial de pagos -->
       <?php if (!empty($pagos)): ?>
@@ -372,7 +385,7 @@ $flash = getFlash();
             </div>
           <?php endforeach; ?>
         </div>
-      <?php else: ?>
+      <?php elseif ($total > 0): ?>
         <p class="cita-vacio">Todavía no hay pagos registrados para esta cita.</p>
       <?php endif; ?>
     </div>
@@ -396,6 +409,9 @@ $flash = getFlash();
 
         <?php if (!$puedeRegistrar): ?>
           <p class="cita-vacio">Solo un administrador o el profesional asignado a esta cita pueden registrar su pago.</p>
+
+        <?php elseif ($total <= 0): ?>
+          <p class="cita-vacio">Esta cita no tiene costo: no hay nada que cobrar.</p>
 
         <?php elseif ($resumen['pendiente'] <= 0): ?>
           <p class="cita-vacio">No hay saldo pendiente: la cita ya está pagada por completo.</p>

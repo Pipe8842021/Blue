@@ -73,6 +73,13 @@ try {
     exit;
 }
 
+// La cita de valoración no tiene costo: se agenda por api/book.php, nunca con abono.
+if (reservaEsValoracion($db, $datos['services'])) {
+    http_response_code(422);
+    echo json_encode(['error' => 'La cita de valoración no tiene costo: se agenda sin pagar. Recarga la página e intenta de nuevo.']);
+    exit;
+}
+
 $apptId = null;
 
 try {

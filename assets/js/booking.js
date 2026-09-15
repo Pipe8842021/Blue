@@ -305,20 +305,22 @@ function initServiceCards() {
 }
 
 function toggleService(card, checked) {
-  const id       = parseInt(card.dataset.id);
-  const duration = parseInt(card.dataset.duration);
-  const price    = parseFloat(card.dataset.price);
-  const name     = card.dataset.name;
+  const id         = parseInt(card.dataset.id);
+  const duration   = parseInt(card.dataset.duration);
+  const price      = parseFloat(card.dataset.price);
+  const name       = card.dataset.name;
+  const valoracion = card.dataset.valoracion === '1';
 
   if (checked) {
     if (!booking.services.find(s => s.id === id)) {
-      booking.services.push({id, name, duration, price});
+      booking.services.push({id, name, duration, price, valoracion});
     }
     card.classList.add('selected');
   } else {
     booking.services = booking.services.filter(s => s.id !== id);
     card.classList.remove('selected');
   }
+  aplicarReglaValoracion(card, checked);
 
   booking.totalDuration = booking.services.reduce((s, x) => s + x.duration, 0);
   updateSelectionBar();
@@ -328,6 +330,53 @@ function toggleService(card, checked) {
   // Reset slot selection when services change (duration may have changed)
   booking.date = booking.timeStart = booking.timeEnd = null;
   updateSlotBanner();
+}
+
+// ── Cita de valoración ─────────────────────────────────────
+// La valoración no tiene costo y se agenda sola: primero se valora al cliente
+// y después pide otra cita para su procedimiento. El servidor valida lo mismo.
+
+function esSoloValoracion() {
+  return booking.services.length === 1 && booking.services[0].valoracion === true;
+}
+
+// Con la pasarela activa se paga el abono, salvo en la valoración, que no se cobra.
+function requierePago() {
+  return PAGOS.activo && !esSoloValoracion();
+}
+
+// Precio para mostrar: la valoración (y cualquier total de $0) dice "Sin costo".
+function fmtPrecioOGratis(n) {
+  return n > 0 ? fmtPrice(n) : 'Sin costo';
+}
+
+// Al elegir la valoración se quitan los demás servicios y quedan bloqueados
+// hasta que el cliente la desmarque.
+function aplicarReglaValoracion(card, checked) {
+  if (checked && card.dataset.valoracion === '1') {
+    const id = parseInt(card.dataset.id);
+    booking.services = booking.services.filter(s => s.id === id);
+  }
+
+  const bloquear  = esSoloValoracion();
+  const elegidaId = bloquear ? booking.services[0].id : null;
+  document.querySelectorAll('.service-option').forEach(op => {
+    const bloqueada = bloquear && parseInt(op.dataset.id) !== elegidaId;
+    const input     = op.querySelector('input[type="checkbox"]');
+    if (bloqueada) {
+      input.checked = false;
+      op.classList.remove('selected');
+    }
+    input.disabled = bloqueada;
+    op.classList.toggle('is-locked', bloqueada);
+  });
+
+  const aviso = document.getElementById('valoracion-aviso');
+  if (aviso) aviso.hidden = !bloquear;
+
+  // El último paso se llama "Pago" solo si de verdad hay algo que pagar.
+  const etiqueta = document.querySelector('#ps-4 .progress-label');
+  if (etiqueta && PAGOS.activo) etiqueta.textContent = requierePago() ? 'Pago' : 'Confirmación';
 }
 
 function updateSelectionBar() {
@@ -347,7 +396,7 @@ function updateSelectionBar() {
     const total = booking.services.reduce((s, x) => s + x.price, 0);
     label.textContent = `${cnt} servicio${cnt > 1 ? 's' : ''} seleccionado${cnt > 1 ? 's' : ''}`;
     dur.textContent   = `${booking.totalDuration} min`;
-    val.textContent   = fmtPrice(total);
+    val.textContent   = fmtPrecioOGratis(total);
   }
 }
 
@@ -660,7 +709,7 @@ function updateSidebar() {
           <div class="ssi-name">${escHtml(s.name)}</div>
           <div class="ssi-meta">${s.duration} min</div>
         </div>
-        <div class="ssi-price">${fmtPrice(s.price)}</div>
+        <div class="ssi-price">${fmtPrecioOGratis(s.price)}</div>
       </div>`;
   });
   html += '</div>';
@@ -679,11 +728,11 @@ function updateSidebar() {
   html += `
     <div class="sidebar-total">
       <span>Total estimado</span>
-      <span class="st-price">${fmtPrice(total)}</span>
+      <span class="st-price">${fmtPrecioOGratis(total)}</span>
     </div>`;
 
   // Con pasarela activa se muestra qué se paga ahora y qué queda pendiente.
-  if (PAGOS.activo && total > 0) {
+  if (requierePago() && total > 0) {
     const abono = calcularAbono(total);
     html += `
       <div class="sidebar-abono">
@@ -721,7 +770,7 @@ function goToStep(n) {
 
   // Back button — en el paso de pago todavía se puede volver a corregir datos.
   const btnBack = document.getElementById('btn-back');
-  btnBack.style.visibility = n > 1 && (n < 4 || PAGOS.activo) ? 'visible' : 'hidden';
+  btnBack.style.visibility = n > 1 && (n < 4 || requierePago()) ? 'visible' : 'hidden';
 
   // Next button
   const btnNext  = document.getElementById('btn-next');
@@ -729,7 +778,7 @@ function goToStep(n) {
   const acciones = document.getElementById('step-actions');
 
   if (n === 4) {
-    if (PAGOS.activo) {
+    if (requierePago()) {
       // El botón de pagar vive dentro del panel; aquí solo queda "Atrás".
       btnNext.style.display  = 'none';
       acciones.style.display = 'flex';
@@ -743,7 +792,7 @@ function goToStep(n) {
 
   btnNext.style.display = '';
   btnLabel.textContent  = n === 3
-    ? (PAGOS.activo ? 'Continuar al pago' : 'Confirmar reserva')
+    ? (requierePago() ? 'Continuar al pago' : 'Confirmar reserva')
     : 'Continuar';
   acciones.style.display = 'flex';
   updateNextBtn();
@@ -794,7 +843,7 @@ document.getElementById('btn-next').addEventListener('click', () => {
     if (!validateStep3()) return;
     guardarDatosContacto();
     goToStep(4);
-    if (!PAGOS.activo) submitBooking();
+    if (!requierePago()) submitBooking();
   } else if (n < 4) {
     goToStep(n + 1);
   }

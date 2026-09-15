@@ -589,7 +589,7 @@ footer { background: var(--dark); color: rgba(255,255,255,0.7); padding: 60px 40
               <p><?= htmlspecialchars($s['description'], ENT_QUOTES, 'UTF-8') ?></p>
             <?php endif; ?>
             <div class="featured-foot">
-              <span class="featured-price"><?= formatPrice((float)$s['price']) ?></span>
+              <span class="featured-price"><?= (float)$s['price'] > 0 ? formatPrice((float)$s['price']) : 'Sin costo' ?></span>
               <span class="featured-dur"><?= (int)$s['duration_min'] ?> min</span>
             </div>
           </div>

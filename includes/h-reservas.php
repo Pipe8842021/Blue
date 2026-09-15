@@ -50,13 +50,30 @@ function validarDatosReserva(array $in): array {
 }
 
 /**
+ * ¿La reserva es solo una cita de valoración?
+ *
+ * La valoración no tiene costo y se agenda sola, así que nunca pasa por la
+ * pasarela: api/book.php la deja entrar aunque el abono sea obligatorio y
+ * api/pago_iniciar.php no le abre checkout. Una valoración mezclada con otros
+ * servicios NO cuenta como valoración (esa reserva la rechaza crearReservaPendiente()).
+ */
+function reservaEsValoracion(PDO $db, array $serviceIds): bool {
+    $ids = array_values(array_unique(array_filter(array_map('intval', $serviceIds))));
+    if (count($ids) !== 1) return false;
+
+    $stmt = $db->prepare('SELECT is_assessment FROM services WHERE id = ? AND active = 1 LIMIT 1');
+    $stmt->execute([$ids[0]]);
+    return (int)$stmt->fetchColumn() === 1;
+}
+
+/**
  * Crea la cita en estado 'pending' junto con su cliente y sus servicios.
  *
  * El horario queda bloqueado apenas termina la transacción, así que este es
  * también el mecanismo que "aparta" el cupo mientras el cliente paga.
  *
  * @throws RuntimeException  errores que sí se le muestran al cliente (409/422)
- * @return array ['appointment_id','client_id','total_min','total_price']
+ * @return array ['appointment_id','client_id','total_min','total_price','es_valoracion']
  */
 function crearReservaPendiente(PDO $db, array $d): array {
     // ── Mutex por fecha ────────────────────────────────────────
@@ -80,7 +97,8 @@ function crearReservaPendiente(PDO $db, array $d): array {
         $svcCheck = $db->prepare(
             "SELECT COUNT(*) AS cnt,
                     COALESCE(SUM(duration_min), 60) AS total_min,
-                    COALESCE(SUM(price), 0)         AS total_price
+                    COALESCE(SUM(price), 0)         AS total_price,
+                    COALESCE(SUM(is_assessment), 0) AS valoraciones
                FROM services WHERE id IN ($marcadores) AND active = 1"
         );
         $svcCheck->execute($d['services']);
@@ -88,6 +106,14 @@ function crearReservaPendiente(PDO $db, array $d): array {
 
         if ((int)$svcRow['cnt'] !== count($d['services'])) {
             throw new RuntimeException('Uno o más servicios no son válidos.');
+        }
+
+        // La valoración va sola: primero se valora al cliente y después pide
+        // otra cita para su procedimiento. El wizard ya lo bloquea; esto es
+        // lo que impide saltárselo llamando a la API directamente.
+        $esValoracion = (int)$svcRow['valoraciones'] > 0;
+        if ($esValoracion && count($d['services']) > 1) {
+            throw new RuntimeException('La cita de valoración se agenda sola, sin otros servicios. Después de tu valoración podrás reservar el procedimiento.');
         }
         $totalMin   = max(30, (int)$svcRow['total_min']);
         $totalPrice = (float)$svcRow['total_price'];
@@ -151,6 +177,7 @@ function crearReservaPendiente(PDO $db, array $d): array {
             'client_id'      => (int)$clientId,
             'total_min'      => $totalMin,
             'total_price'    => $totalPrice,
+            'es_valoracion'  => $esValoracion,
         ];
 
     } catch (Exception $e) {

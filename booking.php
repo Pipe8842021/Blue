@@ -15,7 +15,7 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
 try {
     $db = getDB();
     $rows = $db->query(
-        'SELECT s.id, s.name, s.description, s.duration_min, s.price, s.image, s.featured,
+        'SELECT s.id, s.name, s.description, s.duration_min, s.price, s.image, s.featured, s.is_assessment,
                 c.id AS cat_id, c.name AS cat_name, c.icon AS cat_icon
          FROM services s
          JOIN categories c ON s.category_id = c.id
@@ -169,6 +169,7 @@ $correoActivo = correoActivo();
                        data-id="<?= $svc['id'] ?>"
                        data-duration="<?= $svc['duration_min'] ?>"
                        data-price="<?= $svc['price'] ?>"
+                       data-valoracion="<?= (int)$svc['is_assessment'] ?>"
                        data-name="<?= htmlspecialchars($svc['name']) ?>"
                        data-cat-id="<?= $catId ?>"
                        data-cat-icon="<?= htmlspecialchars($cat['icon']) ?>">
@@ -179,7 +180,9 @@ $correoActivo = correoActivo();
                            src="/Blue/assets/img/servicios/<?= rawurlencode(basename($svc['image'])) ?>"
                            alt="<?= htmlspecialchars($svc['name']) ?>" loading="lazy">
                     <?php endif; ?>
-                    <?php if ((int)$svc['featured'] === 1): ?>
+                    <?php if ((int)$svc['is_assessment'] === 1): ?>
+                      <span class="service-card-featured service-card-valoracion">Valoración · sin costo</span>
+                    <?php elseif ((int)$svc['featured'] === 1): ?>
                       <span class="service-card-featured">
                         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.1 6.6.9-4.8 4.7 1.2 6.7L12 17.2 6.1 20.4l1.2-6.7L2.5 9l6.6-.9z"/></svg>
                         Destacado
@@ -194,7 +197,11 @@ $correoActivo = correoActivo();
                   <div class="service-card-info">
                     <div class="service-card-name"><?= htmlspecialchars($svc['name']) ?></div>
                     <div class="service-card-bottom">
-                      <span class="service-card-price"><?= formatPrice($svc['price']) ?></span>
+                      <?php if ((int)$svc['is_assessment'] === 1): ?>
+                        <span class="service-card-price service-card-price--gratis">Sin costo</span>
+                      <?php else: ?>
+                        <span class="service-card-price"><?= formatPrice($svc['price']) ?></span>
+                      <?php endif; ?>
                       <span class="service-card-add"></span>
                     </div>
                   </div>
@@ -205,6 +212,15 @@ $correoActivo = correoActivo();
         <?php endforeach; ?>
       </div>
     <?php endif; ?>
+
+    <!-- La cita de valoración se agenda sola: booking.js muestra esto al elegirla -->
+    <div class="valoracion-aviso" id="valoracion-aviso" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <div>
+        <strong>La cita de valoración se agenda sola.</strong>
+        Primero te valoramos y, después de tu cita, podrás reservar el tratamiento que te recomienden.
+      </div>
+    </div>
 
     <div class="selection-bar" id="sel-bar">
       <span class="selection-bar-label" id="sel-bar-label">Selecciona al menos un servicio para continuar</span>

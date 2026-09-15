@@ -245,3 +245,13 @@
   .lb-figure img { max-height: calc(100vh - 150px); }
   .gal-upload-cat .form-control { width: 100%; }
 }
+
+/* Badge de cita de valoración (sin costo, se agenda sola) */
+.svc-valoracion {
+  display: inline-flex; align-items: center;
+  vertical-align: middle; margin-left: 6px;
+  padding: 2px 8px; border-radius: 999px;
+  background: var(--teal-light); color: var(--teal-dark);
+  font-size: 10px; font-weight: 800; letter-spacing: .02em; text-transform: uppercase;
+}
+#svc_price[readonly] { background: var(--bg-page); color: var(--muted); cursor: not-allowed; }

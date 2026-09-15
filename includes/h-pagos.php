@@ -97,6 +97,11 @@ function huellaConfigPagos(): string {
  * redondea hacia arriba para no pedir cifras incómodas.
  */
 function calcularAbonoReserva(float $totalServicios): float {
+    // Una cita sin costo (la valoración) nunca lleva abono: sin esto, el
+    // mínimo configurado le cobraría $20.000 a un servicio de $0.
+    if ($totalServicios <= 0) {
+        return 0.0;
+    }
     $r = configPagos()['abono'] ?? [];
     $porcentaje = max(1, min(100, (float)($r['porcentaje'] ?? 30)));
     $minimo     = max(0, (float)($r['minimo'] ?? 0));
