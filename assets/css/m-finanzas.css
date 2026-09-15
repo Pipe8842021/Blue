@@ -552,3 +552,9 @@
     .diag-head { flex-direction: column; align-items: stretch; }
     .diag-boton { width: 100%; justify-content: center; }
 }
+
+/* ── Estado vacío con ícono SVG ──
+   admin.css solo dimensiona íconos de texto (emoji); sin esto el SVG
+   ocupa todo el ancho. Mismo tamaño y color que en Agenda (m-agenda.css). */
+.empty-state-icon { opacity: 1; line-height: 1; margin-bottom: 12px; }
+.empty-state-icon svg { width: 46px; height: 46px; color: var(--teal); opacity: .55; }

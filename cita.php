@@ -17,14 +17,14 @@ require_once __DIR__ . '/includes/session.php';
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/h-reservas.php';
 require_once __DIR__ . '/includes/h-pagos.php';
+require_once __DIR__ . '/includes/h-negocio.php';
 
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 header('Cache-Control: no-store');
 
-// Teléfono de contacto del centro (mismo que muestra el wizard de reservas).
-const TELEFONO_CENTRO = '+57 300 123 4567';
+
 
 $citaId = (int)($_GET['id'] ?? 0);
 $token  = (string)($_GET['t'] ?? '');
@@ -40,11 +40,14 @@ try {
 $usuario   = currentUser();
 $esAdmin   = isLoggedIn() && ($usuario['role'] ?? '') === 'admin';
 $esStaff   = isLoggedIn() && ($usuario['role'] ?? '') === 'staff';
-$esPersonal = $esAdmin || $esStaff;
 
 $cita = $citaId > 0 ? citaConDetalle($db, $citaId) : null;
 
-// El cliente solo pasa con el token correcto; el personal, con estar logueado.
+// Un profesional solo ve las citas que tiene asignadas, igual que en «Mis citas»;
+// el administrador ve todas.
+$esPersonal = $esAdmin || ($esStaff && $cita && (int)$cita['staff_id'] === (int)$usuario['id']);
+
+// El cliente solo pasa con el token correcto; el personal, con tener la cita a su cargo.
 $accesoCliente = $cita && !$esPersonal && tokenCitaEsValido($db, $citaId, $token);
 if (!$cita || (!$esPersonal && !$accesoCliente)) {
     http_response_code(404);
@@ -165,7 +168,7 @@ $flash = getFlash();
         </p>
       </div>
       <div class="pago-acciones">
-        <a href="https://wa.me/<?= e(preg_replace('/\D+/', '', TELEFONO_CENTRO)) ?>" class="btn-home btn-home--primary">Escribir por WhatsApp</a>
+        <a href="https://wa.me/<?= e(telefonoNegocioDigitos()) ?>" class="btn-home btn-home--primary">Escribir por WhatsApp</a>
         <a href="/Blue/booking.php" class="btn-home">Reservar una cita</a>
       </div>
     </div>
@@ -385,8 +388,8 @@ $flash = getFlash();
           <div class="cita-aviso cita-aviso--alerta">
             <span class="cita-aviso-icon">!</span>
             <div>
-              <strong>Ojo: esta cita ya tiene <?= e(formatPrice($resumen['ingreso_externo'])) ?> registrados en Finanzas</strong>
-              Ese ingreso se creó al marcar la cita como completada. Verifica antes de registrar otro pago para no contarlo dos veces.
+              <strong>Incluye <?= e(formatPrice($resumen['ingreso_externo'])) ?> registrados en Finanzas al completar la cita</strong>
+              Ese dinero ya cuenta como saldo pagado, pero sin detalle de medio de pago ni de quién lo recibió.
             </div>
           </div>
         <?php endif; ?>
@@ -481,7 +484,7 @@ $flash = getFlash();
           24 horas de anticipación para poder liberar el horario.
         </p>
         <div class="pago-acciones" style="justify-content:flex-start;margin-top:16px">
-          <a href="https://wa.me/<?= e(preg_replace('/\D+/', '', TELEFONO_CENTRO)) ?>?text=<?= rawurlencode('Hola, quiero consultar mi cita #' . $citaId) ?>"
+          <a href="https://wa.me/<?= e(telefonoNegocioDigitos()) ?>?text=<?= rawurlencode('Hola, quiero consultar mi cita #' . $citaId) ?>"
              class="btn-home btn-home--primary" target="_blank" rel="noopener">Escribir por WhatsApp</a>
           <a href="/Blue/booking.php" class="btn-home">Reservar otra cita</a>
         </div>

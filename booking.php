@@ -2,6 +2,7 @@
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/includes/session.php';
 require_once __DIR__ . '/includes/functions.php';
+require_once __DIR__ . '/includes/h-negocio.php';
 require_once __DIR__ . '/includes/h-pagos.php';
 require_once __DIR__ . '/includes/h-correo.php';
 
@@ -433,21 +434,21 @@ $correoActivo = correoActivo();
         <div class="sii-icon">📍</div>
         <div>
           <div class="sii-label">Dirección</div>
-          <div class="sii-value">Tu ciudad, Colombia</div>
+          <div class="sii-value"><?= e(datoNegocio('direccion')) ?></div>
         </div>
       </div>
       <div class="sidebar-info-item">
         <div class="sii-icon">🕐</div>
         <div>
           <div class="sii-label">Horario</div>
-          <div class="sii-value">Lun – Sáb · 8:00 am – 7:00 pm</div>
+          <div class="sii-value"><?= e(datoNegocio('horario')) ?></div>
         </div>
       </div>
       <div class="sidebar-info-item">
         <div class="sii-icon">📞</div>
         <div>
           <div class="sii-label">Teléfono</div>
-          <div class="sii-value">+57 300 123 4567</div>
+          <div class="sii-value"><?= e(datoNegocio('telefono')) ?></div>
         </div>
       </div>
     </div>

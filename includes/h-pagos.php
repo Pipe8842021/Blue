@@ -582,16 +582,20 @@ function resumenPagosCita(PDO $db, int $citaId, float $totalServicios): array {
     $stmt->execute([$citaId]);
     $r = $stmt->fetch() ?: ['abono' => 0, 'saldo_pagado' => 0];
 
-    $externo = $db->prepare(
+    $stmtExterno = $db->prepare(
         "SELECT COALESCE(SUM(amount), 0)
            FROM finances
           WHERE appointment_id = ? AND type = 'income'
             AND category NOT IN ('Abono en línea', 'Saldo de cita')"
     );
-    $externo->execute([$citaId]);
+    $stmtExterno->execute([$citaId]);
+    $externo = (float)$stmtExterno->fetchColumn();
 
+    // El ingreso que registra Agenda al completar la cita (registrarIngresoCita)
+    // también es dinero ya recibido en el centro: cuenta como saldo pagado, así
+    // no se puede volver a registrar desde esta vista y duplicarlo en Finanzas.
     $abono  = (float)$r['abono'];
-    $saldo  = (float)$r['saldo_pagado'];
+    $saldo  = (float)$r['saldo_pagado'] + $externo;
     $pagado = $abono + $saldo;
 
     return [
@@ -601,7 +605,7 @@ function resumenPagosCita(PDO $db, int $citaId, float $totalServicios): array {
         'pagado'          => $pagado,
         'pendiente'       => max(0.0, round($totalServicios - $pagado, 2)),
         'esta_saldada'    => round($totalServicios - $pagado, 2) <= 0,
-        'ingreso_externo' => (float)$externo->fetchColumn(),
+        'ingreso_externo' => $externo,
     ];
 }
 

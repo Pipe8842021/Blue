@@ -27,6 +27,7 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/h-reservas.php';
 require_once __DIR__ . '/../includes/h-pagos.php';
+require_once __DIR__ . '/../includes/h-agenda.php';
 
 // ── Utilidades de la suite ────────────────────────────────
 $resultado = ['ok' => 0, 'falla' => 0, 'omitida' => 0];
@@ -336,6 +337,28 @@ if (!$servicio) {
         comprobar('Cupo sin pagar a tiempo se libera solo',
             estadoCita($db, $rv['appointment_id']) === 'cancelled'
             && buscarPagoPorReferencia($db, $rv['reference'])['status'] === 'expired');
+
+        // ── Cita completada sin abono ──
+        // Al completarla, Agenda registra el total en Finanzas (registrarIngresoCita).
+        // Ese dinero ya entró: la vista de la cita no debe dejar registrarlo otra vez.
+        if (!$actor) {
+            omitir('Ingreso al completar cuenta como pagado', 'no hay usuarios activos para registrarlo');
+        } else {
+            $rc = reservaDePrueba($db, $servicio, 55);
+            $db->prepare("UPDATE payments SET status = 'expired' WHERE id = ?")->execute([$rc['pago']['id']]);
+            $db->prepare("UPDATE appointments SET status = 'completed' WHERE id = ?")->execute([$rc['appointment_id']]);
+            registrarIngresoCita($db, $rc['appointment_id'], $actor);
+
+            $totalRc   = (float)$rc['total_price'];
+            $resumenRc = resumenPagosCita($db, $rc['appointment_id'], $totalRc);
+            comprobar('El ingreso registrado al completar cuenta como pagado',
+                $resumenRc['esta_saldada'], 'pendiente ' . formatPrice($resumenRc['pendiente']));
+
+            $doble = registrarPagoSaldo($db, $rc['appointment_id'], $totalRc,
+                ['monto' => $totalRc, 'medio' => 'Efectivo', 'recibido_por' => $actor], $actor);
+            comprobar('No deja registrar dos veces el dinero de una cita completada',
+                !$doble['ok'] && ingresosDeCita($db, $rc['appointment_id']) === 1);
+        }
 
     } catch (Throwable $e) {
         comprobar('Flujo en la base sin errores inesperados', false, $e->getMessage());
