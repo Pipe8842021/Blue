@@ -334,7 +334,7 @@ if (!isset($sections[$tab])) { $tab = 'profile'; }
   <div class="settings-panel-head">
     <div>
       <h3>Equipo</h3>
-      <p>Usuarios con acceso al panel y sus roles</p>
+      <p>Usuarios con acceso al panel y sus roles. «Agenda» define el horario y los servicios de cada profesional en la reserva en línea.</p>
     </div>
     <button class="btn btn-primary" onclick="newStaff()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -363,6 +363,9 @@ if (!isset($sections[$tab])) { $tab = 'profile'; }
             <td>
               <div class="action-btns">
                 <button class="btn-action" onclick='editStaff(<?= json_encode(["id"=>$u["id"],"name"=>$u["name"],"email"=>$u["email"],"phone"=>$u["phone"],"role"=>$u["role"]], JSON_HEX_APOS|JSON_HEX_QUOT) ?>)'>Editar</button>
+                <?php if ($u['role'] === 'staff'): ?>
+                  <a class="btn-action" href="/Blue/admin/agenda_personal.php?id=<?= (int)$u['id'] ?>">Agenda</a>
+                <?php endif; ?>
                 <?php if ($u['id'] != $me['id']): ?>
                   <form method="POST" style="display:inline">
                     <input type="hidden" name="action" value="staff_toggle">

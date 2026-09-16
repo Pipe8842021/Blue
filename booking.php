@@ -239,6 +239,10 @@ $correoActivo = correoActivo();
       <div class="step-subtitle">Los cajones en rojo ya están ocupados. Haz clic en uno disponible para seleccionarlo.</div>
     </div>
 
+    <!-- Profesionales que atienden estos servicios; lo arma booking.js.
+         Con horario general (sin agendas cargadas) queda oculto. -->
+    <div class="staff-picker" id="staff-picker" hidden></div>
+
     <div class="cal-header">
       <button class="cal-nav-btn" id="btn-prev-week">&#8592; Anterior</button>
       <span class="cal-week-label" id="cal-week-label"></span>

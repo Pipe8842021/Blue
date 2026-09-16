@@ -59,20 +59,20 @@ function telefonoDePrueba(): string {
     return $tel;
 }
 
-/** Busca un horario libre lejos en el futuro, para no interferir con la agenda real. */
-function horarioLibre(PDO $db, int $duracion, int $desdeDias = 30): array {
-    $choque = $db->prepare(
-        "SELECT COUNT(*) FROM appointments WHERE date = ? AND status IN ('pending','confirmed')
-            AND time_start < ? AND time_end > ?"
-    );
+/**
+ * Busca un horario libre lejos en el futuro, para no interferir con la agenda real.
+ * Usa la misma regla que la reserva (h-agendas.php): con agendas por profesional,
+ * «libre» depende del horario de cada una y de los servicios que realiza.
+ */
+function horarioLibre(PDO $db, int $duracion, int $desdeDias = 30, array $servicios = []): array {
     for ($d = $desdeDias; $d < $desdeDias + 60; $d++) {
         $fecha = date('Y-m-d', strtotime("+{$d} days"));
-        if (date('N', strtotime($fecha)) == 7) continue;
-        for ($h = 8; ($h * 60 + $duracion) <= 19 * 60; $h++) {
-            $ini = sprintf('%02d:00', $h);
-            $fin = date('H:i', strtotime($ini) + $duracion * 60);
-            $choque->execute([$fecha, $fin . ':00', $ini . ':00']);
-            if ((int)$choque->fetchColumn() === 0) return [$fecha, $ini, $fin];
+        $ctx   = contextoAgenda($db, $fecha, $fecha, $servicios);
+        for ($h = 6; ($h * 60 + $duracion) <= 22 * 60; $h++) {
+            if (evaluarHorario($ctx, $fecha, $h * 60, $duracion)['estado'] === 'libre') {
+                $ini = sprintf('%02d:00', $h);
+                return [$fecha, $ini, date('H:i', strtotime($ini) + $duracion * 60)];
+            }
         }
     }
     throw new RuntimeException('No se encontró un horario libre para las pruebas.');
@@ -81,7 +81,7 @@ function horarioLibre(PDO $db, int $duracion, int $desdeDias = 30): array {
 /** Crea una reserva pendiente con los mismos pasos que api/pago_iniciar.php. */
 function reservaDePrueba(PDO $db, array $servicio, int $desdeDias, string $venceEn = '+20 minutes'): array {
     global $creado;
-    [$fecha, $ini, $fin] = horarioLibre($db, max(30, (int)$servicio['duration_min']), $desdeDias);
+    [$fecha, $ini, $fin] = horarioLibre($db, max(30, (int)$servicio['duration_min']), $desdeDias, [(int)$servicio['id']]);
     $v = validarDatosReserva([
         'services' => [(int)$servicio['id']], 'date' => $fecha, 'time_start' => $ini, 'time_end' => $fin,
         'name' => 'Prueba Automática Wompi', 'phone' => telefonoDePrueba(), 'email' => 'pruebas@blue.test',

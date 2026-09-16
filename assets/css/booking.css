@@ -2377,3 +2377,71 @@
   color: var(--teal-tinta);
 }
 .valoracion-aviso strong { color: var(--teal-tinta); }
+
+/* ── Elegir profesional (agendas por profesional) ────────────
+   booking.js llena #staff-picker con «Cualquiera disponible» + cada una. */
+.staff-picker { margin-bottom: 18px; }
+.staff-picker[hidden] { display: none; }
+
+.staff-picker-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dark);
+  margin-bottom: 10px;
+}
+.staff-picker-opciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.staff-picker-vacio {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--teal-light);
+  color: var(--text);
+  font-size: 13.5px;
+}
+
+.staff-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 14px 8px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: 50px;
+  background: #fff;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color .18s, box-shadow .18s, color .18s;
+}
+.staff-chip:hover { border-color: var(--teal); }
+.staff-chip.active {
+  border-color: var(--teal);
+  color: var(--teal-tinta);
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(91,196,184,.22);
+}
+
+.staff-chip-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--teal-light);
+  color: var(--teal-tinta);
+  font-size: 11.5px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.staff-chip-avatar svg { width: 15px; height: 15px; }
+.staff-chip.active .staff-chip-avatar { background: var(--teal); color: #fff; }
+
+@media (max-width: 520px) {
+  .staff-chip { flex: 1 1 100%; }
+}

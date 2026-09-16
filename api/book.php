@@ -83,6 +83,8 @@ try {
     echo json_encode([
         'success'        => true,
         'appointment_id' => $reserva['appointment_id'],
+        // Quién atiende (vacío en modo general, sin agendas por profesional).
+        'staff_nombre'   => nombreProfesional($db, $reserva['staff_id']),
         // Enlace privado para que el cliente siga el estado de su cita.
         'status_url'     => urlEstadoCita($db, $reserva['appointment_id']),
     ]);

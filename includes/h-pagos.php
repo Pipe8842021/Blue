@@ -483,13 +483,8 @@ function confirmarCitaPagada(PDO $db, array $pago, string $medioPago, bool $mont
     $horarioLibre = true;
     if ($cita['status'] === 'cancelled') {
         // La cita se había cancelado por vencimiento: ¿el cupo sigue libre?
-        $choque = $db->prepare(
-            "SELECT COUNT(*) FROM appointments
-              WHERE id <> ? AND date = ? AND status IN ('pending','confirmed')
-                AND time_start < ? AND time_end > ?"
-        );
-        $choque->execute([$cita['id'], $cita['date'], $cita['time_end'], $cita['time_start']]);
-        $horarioLibre = (int)$choque->fetchColumn() === 0;
+        // Con agendas se mira el cupo de su profesional; sin agendas, el del centro.
+        $horarioLibre = citaCabeEnSuHorario($db, $cita);
     }
 
     if ($horarioLibre) {

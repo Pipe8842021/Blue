@@ -180,3 +180,87 @@
 @media (max-width: 560px) {
   .cita-servicios { grid-template-columns: 1fr; }
 }
+
+/* ── Agenda de cada profesional (admin/agenda_personal.php) ── */
+.agenda-ayuda { font-size: 12.5px; color: var(--muted); font-weight: 400; }
+
+.agenda-dia {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+}
+.agenda-dia:last-child { border-bottom: 0; }
+
+.agenda-dia-check {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 140px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+}
+.agenda-dia.activo .agenda-dia-check { color: var(--dark); }
+
+.agenda-turnos { display: flex; flex-wrap: wrap; gap: 14px; }
+.agenda-turno  { display: flex; align-items: center; gap: 8px; }
+.agenda-turno-etiqueta { font-size: 12px; color: var(--muted); min-width: 52px; }
+.agenda-turno-a        { font-size: 12.5px; color: var(--muted); }
+.agenda-turno .form-control { width: 118px; }
+.agenda-turno input[disabled] { background: var(--bg-page); color: var(--muted); }
+
+.agenda-modo {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 0;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.agenda-servicios {
+    margin-top: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-page);
+    max-height: 320px;
+    overflow-y: auto;
+}
+.agenda-servicios[hidden] { display: none; }
+.agenda-servicios-cat {
+    margin: 12px 0 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.agenda-servicios-cat:first-child { margin-top: 0; }
+.agenda-servicio {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 5px 0;
+    font-size: 13.5px;
+    cursor: pointer;
+}
+
+.agenda-acciones {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin: 18px 0 30px;
+}
+
+@media (max-width: 700px) {
+    .agenda-dia-check { min-width: 100%; }
+    .agenda-turnos    { width: 100%; }
+    .agenda-turno .form-control { width: 104px; }
+    .agenda-acciones  { flex-direction: column-reverse; }
+    .agenda-acciones .btn { width: 100%; }
+}

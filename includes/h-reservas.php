@@ -8,6 +8,9 @@
 // Así la validación y el bloqueo del horario viven en un solo sitio.
 // ============================================================
 
+// Disponibilidad y asignación de profesional (agendas por profesional).
+require_once __DIR__ . '/h-agendas.php';
+
 /**
  * Normaliza y valida lo que llega del navegador.
  *
@@ -25,6 +28,8 @@ function validarDatosReserva(array $in): array {
         'note'       => trim((string)($in['note']       ?? '')),
         'whatsapp'   => !empty($in['whatsapp']),
         'email_reminder' => !empty($in['email_reminder']),
+        // Profesional elegida en el wizard; 0 = «cualquiera disponible».
+        'staff_id'   => max(0, (int)($in['staff_id'] ?? 0)),
     ];
 
     // Se valida el formato y se sale ANTES de tocar DateTime: un valor que no
@@ -73,7 +78,7 @@ function reservaEsValoracion(PDO $db, array $serviceIds): bool {
  * también el mecanismo que "aparta" el cupo mientras el cliente paga.
  *
  * @throws RuntimeException  errores que sí se le muestran al cliente (409/422)
- * @return array ['appointment_id','client_id','total_min','total_price','es_valoracion']
+ * @return array ['appointment_id','client_id','total_min','total_price','es_valoracion','staff_id','time_end']
  */
 function crearReservaPendiente(PDO $db, array $d): array {
     // ── Mutex por fecha ────────────────────────────────────────
@@ -118,18 +123,14 @@ function crearReservaPendiente(PDO $db, array $d): array {
         $totalMin   = max(30, (int)$svcRow['total_min']);
         $totalPrice = (float)$svcRow['total_price'];
 
-        // ── Verificar que el slot sigue libre ────────────────────
-        $conflicto = $db->prepare(
-            "SELECT COUNT(*) FROM appointments
-              WHERE date = ?
-                AND status IN ('pending','confirmed')
-                AND time_start < ?
-                AND time_end   > ?"
-        );
-        $conflicto->execute([$d['date'], $d['time_end'] . ':00', $d['time_start'] . ':00']);
-        if ((int)$conflicto->fetchColumn() > 0) {
-            throw new RuntimeException('El horario seleccionado ya no está disponible. Por favor elige otro.');
-        }
+        // La hora de fin sale de la duración real de los servicios, no del navegador.
+        $horaFin = date('H:i', strtotime($d['time_start']) + $totalMin * 60);
+
+        // ── Asignar profesional y verificar que el horario sigue libre ──
+        // Con agendas, cada profesional tiene su propio cupo y se respeta la
+        // elegida (o se asigna una si pidió «cualquiera»). Sin agendas (modo
+        // general) el centro tiene un solo cupo por horario, como antes.
+        $staffId = asignarProfesionalReserva($db, $d['services'], $d['date'], $d['time_start'], $totalMin, $d['staff_id']);
 
         // ── Crear o encontrar cliente (por teléfono) ─────────────
         $buscarCliente = $db->prepare('SELECT id FROM clients WHERE phone = ? LIMIT 1');
@@ -148,13 +149,14 @@ function crearReservaPendiente(PDO $db, array $d): array {
         // ── Crear la cita ─────────────────────────────────────────
         $db->prepare(
             "INSERT INTO appointments
-                (client_id, date, time_start, time_end, total_duration, status, whatsapp_reminder, email_reminder, notes)
-             VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?)"
+                (client_id, staff_id, date, time_start, time_end, total_duration, status, whatsapp_reminder, email_reminder, notes)
+             VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)"
         )->execute([
             $clientId,
+            $staffId,
             $d['date'],
             $d['time_start'] . ':00',
-            $d['time_end']   . ':00',
+            $horaFin . ':00',
             $totalMin,
             $d['whatsapp'] ? 1 : 0,
             $d['email_reminder'] ? 1 : 0,
@@ -178,6 +180,8 @@ function crearReservaPendiente(PDO $db, array $d): array {
             'total_min'      => $totalMin,
             'total_price'    => $totalPrice,
             'es_valoracion'  => $esValoracion,
+            'staff_id'       => $staffId,
+            'time_end'       => $horaFin,
         ];
 
     } catch (Exception $e) {

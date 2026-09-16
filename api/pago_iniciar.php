@@ -143,6 +143,7 @@ try {
         'checkout_url'   => urlCheckoutWompi() . '?' . http_build_query($campos),
         'reference'      => $referencia,
         'appointment_id' => $apptId,
+        'staff_nombre'   => nombreProfesional($db, $reserva['staff_id']),
         'amount'         => (float)$abono,
         'amount_label'   => formatPrice((float)$abono),
         'total'          => (float)$reserva['total_price'],
