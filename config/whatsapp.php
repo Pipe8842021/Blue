@@ -35,6 +35,18 @@ $config = [
     'token'           => '',
     'tiempo_limite'   => 10,     // segundos de espera antes de rendirse
 
+    // ── Webhook: mensajes que entran (api/whatsapp_webhook.php) ─
+    // `verify_token` lo inventas tú y lo escribes igual en Meta al registrar la
+    // URL del webhook. `app_secret` sale de la app de Meta (Configuración →
+    // Básica → Clave secreta) y sirve para comprobar la firma de cada evento:
+    // sin él el webhook rechaza todo, para que nadie pueda falsificar mensajes.
+    'verify_token' => '',
+    'app_secret'   => '',
+
+    // El bot solo responde a este número de mensajes seguidos de una misma
+    // persona en una hora; así una conversación no se dispara sola.
+    'limite_respuestas_hora' => 20,
+
     // Idioma con el que se aprobaron las plantillas en Meta ('es', 'es_CO'…).
     'idioma' => 'es',
 

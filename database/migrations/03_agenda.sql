@@ -85,3 +85,32 @@ CREATE TABLE IF NOT EXISTS notifications (
     CONSTRAINT fk_notifications_appointment
         FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- WhatsApp: mensajes y conversaciones (tarea 1)
+-- ------------------------------------------------------------
+-- `wa_messages` guarda lo que entra y lo que sale, con el id que
+-- asigna Meta para no procesar dos veces el mismo mensaje (Meta
+-- reintenta los eventos del webhook).
+-- `wa_conversations` recuerda en qué punto del menú va cada número.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS wa_messages (
+    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    direction     ENUM('in','out') NOT NULL,
+    phone         VARCHAR(20)   NOT NULL COMMENT 'Solo dígitos, con código de país',
+    wa_message_id VARCHAR(64)   NULL COMMENT 'Id del mensaje en Meta (solo los entrantes)',
+    body          VARCHAR(1000) NULL,
+    template      VARCHAR(60)   NULL COMMENT 'Plantilla usada, si el saliente fue con plantilla',
+    created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_wa_messages_meta (wa_message_id),
+    KEY idx_wa_messages_phone (phone, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS wa_conversations (
+    phone        VARCHAR(20) NOT NULL PRIMARY KEY COMMENT 'Solo dígitos, con código de país',
+    state        VARCHAR(30) NOT NULL DEFAULT 'menu' COMMENT 'En qué paso del menú va',
+    data         TEXT        NULL COMMENT 'Contexto del paso, en JSON',
+    last_in_at   DATETIME    NULL,
+    last_out_at  DATETIME    NULL,
+    updated_at   DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
