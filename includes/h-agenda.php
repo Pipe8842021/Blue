@@ -5,6 +5,9 @@
  * Funciones con nombre descriptivo de su tarea. No editar el functions.php compartido.
  */
 
+// Cancelar desde «Editar cita» aplica la misma política del abono y los mismos avisos.
+require_once __DIR__ . '/h-cancelaciones.php';
+
 /**
  * Devuelve el HTML del badge de estado de una cita.
  */
@@ -135,7 +138,12 @@ function guardarCita(PDO $db, array $in, ?int $forcedStaffId, int $actorId): arr
 
     try {
         $db->beginTransaction();
+        $estadoAnterior = null;
         if ($id > 0) {
+            $anterior = $db->prepare('SELECT status FROM appointments WHERE id = ?');
+            $anterior->execute([$id]);
+            $estadoAnterior = $anterior->fetchColumn() ?: null;
+
             $db->prepare("UPDATE appointments SET client_id=?, staff_id=?, date=?, time_start=?, time_end=?, total_duration=?, status=?, notes=? WHERE id=?")
                ->execute([$clientId, $staffId, $date, $timeStart, $timeEnd, $dur, $status, $notes, $id]);
             $db->prepare("DELETE FROM appointment_services WHERE appointment_id=?")->execute([$id]);
@@ -152,6 +160,11 @@ function guardarCita(PDO $db, array $in, ?int $forcedStaffId, int $actorId): arr
     } catch (Exception $e) {
         if ($db->inTransaction()) $db->rollBack();
         return ['ok' => false, 'msg' => 'No se pudo guardar la cita.'];
+    }
+
+    // Una cita que pasa a «Cancelada» desde el formulario se registra como cancelación del equipo.
+    if ($status === 'cancelled' && $estadoAnterior !== null && $estadoAnterior !== 'cancelled') {
+        registrarCancelacionDesdeEdicion($db, $id, $actorId);
     }
     return ['ok' => true, 'msg' => 'Cita guardada correctamente.'];
 }

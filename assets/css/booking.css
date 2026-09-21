@@ -2445,3 +2445,64 @@
 @media (max-width: 520px) {
   .staff-chip { flex: 1 1 100%; }
 }
+
+/* ── Cancelar la cita desde el enlace del cliente (cita.php) ── */
+.cita-cancelar {
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.cita-cancelar summary {
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--muted);
+  list-style: none;
+}
+.cita-cancelar summary::-webkit-details-marker { display: none; }
+.cita-cancelar summary::before { content: '▸ '; }
+.cita-cancelar[open] summary::before { content: '▾ '; }
+.cita-cancelar summary:hover { color: var(--text); }
+
+.cita-cancelar-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.cita-cancelar-form label { font-size: 13px; font-weight: 600; color: var(--text); }
+.cita-cancelar-form label span { font-weight: 400; color: var(--muted); }
+.cita-cancelar-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+}
+.btn-cancelar-cita {
+  align-self: flex-start;
+  padding: 10px 18px;
+  border: 1.5px solid var(--danger);
+  border-radius: 50px;
+  background: #fff;
+  color: var(--danger);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .18s, border-color .18s;
+}
+.btn-cancelar-cita:hover { background: rgba(224,85,85,.08); }
+
+.cita-cancelar-no {
+  margin: 16px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Acciones de devolución del abono (solo admin) */
+.cita-devolucion { margin-top: 12px; }
+.cita-devolucion button { font-family: inherit; cursor: pointer; }

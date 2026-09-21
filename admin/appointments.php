@@ -29,9 +29,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
 
             case 'cancel':
-                $db->prepare("UPDATE appointments SET status='cancelled' WHERE id=?")->execute([$id]);
-                avisarPorCorreoSiCorresponde($db, $id, 'cancelada');
-                setFlash('info', 'La cita fue cancelada.');
+                // Aplica la política del abono y avisa al equipo y al cliente (h-cancelaciones.php).
+                $r = cancelarCita($db, $id, 'equipo', (int)currentUser()['id'], trim($_POST['motivo'] ?? ''));
+                setFlash($r['ok'] ? 'info' : 'error', $r['msg']);
                 break;
 
             case 'complete':
@@ -223,7 +223,7 @@ function buildUrl(array $overrides): string {
                 <td><?= $a['staff_name'] ? e($a['staff_name']) : '<span class="pill pill-muted">Sin asignar</span>' ?></td>
                 <td style="font-weight:600">
                   <?= formatPrice((float)$a['total_price']) ?>
-                  <?php $insignia = insigniaPagoCita((float)$a['total_price'], (float)($pagadoPorCita[$a['id']] ?? 0)); ?>
+                  <?php $insignia = $a['status'] === 'cancelled' ? '' : insigniaPagoCita((float)$a['total_price'], (float)($pagadoPorCita[$a['id']] ?? 0)); // una cita cancelada no tiene saldo por cobrar ?>
                   <?php if ($insignia): ?>
                     <div style="margin-top:5px;font-weight:500"><?= $insignia ?></div>
                   <?php endif; ?>

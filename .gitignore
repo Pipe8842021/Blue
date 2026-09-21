@@ -29,3 +29,9 @@ config/mail.local.php
 
 # Correos de prueba guardados en modo demo (metodo=log)
 logs/correos/
+
+# Token real de WhatsApp (Cloud API de Meta) — nunca se versiona
+config/whatsapp.local.php
+
+# Mensajes de WhatsApp de prueba guardados en modo log
+logs/whatsapp/

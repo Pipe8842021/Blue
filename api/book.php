@@ -78,6 +78,8 @@ try {
     // La cita ya quedó guardada: un problema al avisar por correo no debe
     // convertirse en un 500 para el cliente ni ocultar que sí se reservó.
     avisarPorCorreoSiCorresponde($db, $reserva['appointment_id'], 'solicitud');
+    // Aviso al equipo (campana del panel): administradores y la profesional asignada.
+    avisarReservaAlEquipo($db, $reserva['appointment_id'], 'reserva_nueva');
 
     $_SESSION['last_booking_at'] = $now;
     echo json_encode([

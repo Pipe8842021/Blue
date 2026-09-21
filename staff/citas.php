@@ -28,8 +28,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             eliminarCita($db, $id, $myId);
             setFlash('info', 'Cita eliminada.');
 
-        } elseif (in_array($action, ['confirm','complete','cancel'], true)) {
-            $map = ['confirm' => 'confirmed', 'complete' => 'completed', 'cancel' => 'cancelled'];
+        } elseif ($action === 'cancel') {
+            // Solo sus propias citas. Aplica la política del abono y avisa (h-cancelaciones.php).
+            $chk = $db->prepare("SELECT COUNT(*) FROM appointments WHERE id=? AND staff_id=?");
+            $chk->execute([$id, $myId]);
+            if ($chk->fetchColumn()) {
+                $r = cancelarCita($db, $id, 'equipo', $myId, trim($_POST['motivo'] ?? ''));
+                setFlash($r['ok'] ? 'info' : 'error', $r['msg']);
+            }
+
+        } elseif (in_array($action, ['confirm','complete'], true)) {
+            $map = ['confirm' => 'confirmed', 'complete' => 'completed'];
             $chk = $db->prepare("SELECT COUNT(*) FROM appointments WHERE id=? AND staff_id=?");
             $chk->execute([$id, $myId]);
             if ($chk->fetchColumn()) {
@@ -37,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db->prepare("UPDATE appointments SET status=? WHERE id=?")->execute([$map[$action], $id]);
                 if ($action === 'complete') registrarIngresoCita($db, $id, $myId);
                 $db->commit();
-                avisarPorCorreoSiCorresponde($db, $id, ['confirm' => 'confirmada', 'complete' => 'completada', 'cancel' => 'cancelada'][$action]);
+                avisarPorCorreoSiCorresponde($db, $id, ['confirm' => 'confirmada', 'complete' => 'completada'][$action]);
                 setFlash('success', 'Cita actualizada.');
             }
         }
@@ -106,6 +115,7 @@ require_once __DIR__ . '/_layout.php';
     $icoDone   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
     $icoEdit   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
     $icoPago   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>';
+    $icoCancel = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
     $icoTrash  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>';
   ?>
     <div class="table-wrap"><table class="data-table">
@@ -125,7 +135,7 @@ require_once __DIR__ . '/_layout.php';
           <td><div><?= date('d M Y', strtotime($a['date'])) ?></div><div style="color:var(--muted);font-size:12px"><?= date('g:i A', strtotime($a['time_start'])) ?></div></td>
           <td style="font-weight:600">
             <?= formatPrice((float)$a['total_price']) ?>
-            <?php $insignia = insigniaPagoCita((float)$a['total_price'], (float)($pagadoPorCita[$a['id']] ?? 0)); ?>
+            <?php $insignia = $a['status'] === 'cancelled' ? '' : insigniaPagoCita((float)$a['total_price'], (float)($pagadoPorCita[$a['id']] ?? 0)); // una cita cancelada no tiene saldo por cobrar ?>
             <?php if ($insignia): ?><div style="margin-top:5px;font-weight:500"><?= $insignia ?></div><?php endif; ?>
           </td>
           <td><?= badgeEstadoCita($a['status']) ?></td>
@@ -139,6 +149,9 @@ require_once __DIR__ . '/_layout.php';
                   <?= botonAccionCita('confirm', $a['id'], $returnQs, 'primary', 'Confirmar', '', $icoCheck) ?>
                 <?php elseif ($a['status'] === 'confirmed'): ?>
                   <?= botonAccionCita('complete', $a['id'], $returnQs, 'primary', 'Marcar atendida', '¿Marcar como atendida?', $icoDone) ?>
+                <?php endif; ?>
+                <?php if (in_array($a['status'], ['pending', 'confirmed'], true)): ?>
+                  <?= botonAccionCita('cancel', $a['id'], $returnQs, 'danger', 'Cancelar', '¿Cancelar esta cita? Se avisará al cliente y al equipo.', $icoCancel) ?>
                 <?php endif; ?>
                 <a class="rowmenu-item" href="/Blue/cita.php?id=<?= (int)$a['id'] ?>"><?= $icoPago ?>Ver estado y pagos</a>
                 <button class="rowmenu-item" onclick='openEditarCita(<?= json_encode($data, JSON_HEX_APOS|JSON_HEX_QUOT) ?>)'><?= $icoEdit ?>Editar</button>

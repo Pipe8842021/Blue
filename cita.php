@@ -18,6 +18,7 @@ require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/h-reservas.php';
 require_once __DIR__ . '/includes/h-pagos.php';
 require_once __DIR__ . '/includes/h-negocio.php';
+require_once __DIR__ . '/includes/h-cancelaciones.php';
 
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
@@ -27,7 +28,8 @@ header('Cache-Control: no-store');
 
 
 $citaId = (int)($_GET['id'] ?? 0);
-$token  = (string)($_GET['t'] ?? '');
+// El enlace del cliente llega en la URL; al cancelar, viaja también en el formulario.
+$token  = (string)($_GET['t'] ?? $_POST['t'] ?? '');
 
 try {
     $db = getDB();
@@ -62,6 +64,10 @@ $resumen        = ['abono' => 0.0, 'saldo_pagado' => 0.0, 'pagado' => 0.0,
                    'pendiente' => 0.0, 'esta_saldada' => false, 'ingreso_externo' => 0.0];
 $pagos          = [];
 $pasos          = [];
+$abonoCita      = null;
+$cancelacion    = ['puede' => false, 'motivo' => ''];
+$quienCancelo   = '';
+$minimoCancelacion = horasMinimasCancelacion();
 $estado         = ['label' => '', 'class' => ''];
 $recibidoPor    = [];
 $equipo         = [];
@@ -75,8 +81,29 @@ if (empty($noEncontrada)) {
     // Un profesional solo administra el dinero de las citas que tiene asignadas.
     $puedeRegistrar = $esAdmin || ($esStaff && (int)$cita['staff_id'] === (int)$usuario['id']);
 
-    // ── Acciones del personal (POST) ──────────────────────
+    // ── Acciones (POST) ───────────────────────────────────
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+        // El cliente solo puede cancelar su propia cita, con su enlace
+        // (el token ya se validó arriba: sin él la página responde 404).
+        if (($_POST['action'] ?? '') === 'cancelar_cita' && $accesoCliente) {
+            $volver = '/Blue/cita.php?id=' . $citaId . '&t=' . rawurlencode($token);
+            if (!verifyCsrf($_POST['csrf_token'] ?? '')) {
+                setFlash('error', 'Tu sesión expiró. Recarga la página e intenta de nuevo.');
+                header('Location: ' . $volver); exit;
+            }
+            $r = cancelarCita($db, $citaId, 'cliente', null, (string)($_POST['motivo'] ?? ''));
+            if ($r['ok']) {
+                setFlash('success', $r['abono'] === 'por_devolver'
+                    ? 'Tu cita fue cancelada. Te devolveremos el abono en los próximos días hábiles.'
+                    : 'Tu cita fue cancelada.');
+            } else {
+                setFlash('error', $r['msg']);
+            }
+            header('Location: ' . $volver); exit;
+        }
+
+        // ── Acciones del personal ─────────────────────────
         $volver = '/Blue/cita.php?id=' . $citaId;
 
         if (!$esPersonal || !$puedeRegistrar) {
@@ -102,6 +129,20 @@ if (empty($noEncontrada)) {
                 $r = anularPagoSaldo($db, (int)($_POST['pago_id'] ?? 0), $citaId);
                 setFlash($r['ok'] ? 'info' : 'error', $r['msg']);
                 break;
+
+            // Devolución del abono de una cita cancelada (h-cancelaciones.php).
+            case 'marcar_devolucion':
+            case 'registrar_devolucion':
+                if (!$esAdmin) {
+                    setFlash('error', 'Solo un administrador gestiona las devoluciones de abonos.');
+                    break;
+                }
+                $pagoId = (int)($_POST['pago_id'] ?? 0);
+                $r = $_POST['action'] === 'marcar_devolucion'
+                    ? marcarAbonoPorDevolver($db, $pagoId, $citaId)
+                    : registrarDevolucionAbono($db, $pagoId, $citaId, (int)$usuario['id']);
+                setFlash($r['ok'] ? 'success' : 'error', $r['msg']);
+                break;
         }
         header('Location: ' . $volver); exit;
     }
@@ -119,6 +160,27 @@ if (empty($noEncontrada)) {
         }
     }
     $recibidoPor = array_values(array_unique($recibidoPor));
+
+    // Abono en línea aprobado (para mostrar su devolución si la cita se canceló).
+    $abonoCita = null;
+    foreach ($pagos as $p) {
+        if ($p['kind'] === 'deposit' && $p['status'] === 'approved') { $abonoCita = $p; break; }
+    }
+
+    // Cancelación: quién, cuándo y si el cliente todavía puede cancelar desde aquí.
+    $cancelacion       = $esPersonal ? ['puede' => false, 'motivo' => ''] : cancelacionClienteDisponible($db, $cita);
+    // Las cancelaciones automáticas (pago vencido o rechazado) no registran quién canceló:
+    // se reconocen porque el abono en línea nunca se aprobó.
+    $canceladaPor = $cita['cancelled_by'] ?? null;
+    if ($cita['status'] === 'cancelled' && $canceladaPor === null && !$abonoCita
+        && array_filter($pagos, fn($p) => $p['kind'] === 'deposit' && in_array($p['status'], ['expired', 'declined', 'voided', 'error'], true))) {
+        $canceladaPor = 'sistema';
+    }
+    $quienCancelo      = [
+        'cliente' => $esPersonal ? 'Cancelada por el cliente desde su enlace' : 'La cancelaste desde este enlace',
+        'equipo'  => 'Cancelada por el centro',
+        'sistema' => 'Cancelada automáticamente: el pago en línea no se completó',
+    ][$canceladaPor ?? ''] ?? '';
 
     if ($esPersonal) {
         $equipo        = $db->query('SELECT id, name FROM users WHERE active = 1 ORDER BY name')->fetchAll();
@@ -213,7 +275,14 @@ $flash = getFlash();
         <span class="cita-cancelada-icon">✕</span>
         <div>
           <strong>Esta cita fue cancelada</strong>
-          Si crees que se trata de un error, escríbenos por WhatsApp y la reprogramamos.
+          <?php if ($quienCancelo): ?>
+            <?= e($quienCancelo) ?><?= $cita['cancelled_at'] ? ' el ' . e(formatDate(substr($cita['cancelled_at'], 0, 10))) : '' ?>.
+          <?php endif; ?>
+          <?php if ($esPersonal && $cita['cancel_reason']): ?>
+            Motivo: <?= e($cita['cancel_reason']) ?>.
+          <?php elseif (!$esPersonal && $canceladaPor !== 'cliente'): ?>
+            Si crees que se trata de un error, escríbenos por WhatsApp y la reprogramamos.
+          <?php endif; ?>
         </div>
       </div>
     <?php else: ?>
@@ -305,6 +374,60 @@ $flash = getFlash();
             No requiere abono ni pago en el centro.
           </div>
         </div>
+
+      <?php elseif ($cita['status'] === 'cancelled'): ?>
+        <!-- Cita cancelada: lo único pendiente es la devolución del abono, si aplica -->
+        <?php if (!$abonoCita): ?>
+          <p class="cita-vacio">La cita se canceló sin abono pagado: no hay nada pendiente.</p>
+
+        <?php elseif ($abonoCita['refund_status'] === 'done'): ?>
+          <div class="cita-aviso cita-aviso--ok">
+            <span class="cita-aviso-icon">✓</span>
+            <div>
+              <strong>Abono de <?= e(formatPrice((float)$abonoCita['amount'])) ?> devuelto</strong>
+              Se registró la devolución el <?= e(formatDate(substr((string)$abonoCita['refunded_at'], 0, 10))) ?>.
+            </div>
+          </div>
+
+        <?php elseif ($abonoCita['refund_status'] === 'pending'): ?>
+          <div class="cita-aviso">
+            <span class="cita-aviso-icon">↩</span>
+            <div>
+              <strong>Abono de <?= e(formatPrice((float)$abonoCita['amount'])) ?> por devolver</strong>
+              <?php if ($esPersonal): ?>
+                Devuélvelo desde el panel de Wompi (referencia <?= e($abonoCita['reference']) ?>) y regístralo aquí.
+              <?php else: ?>
+                Como cancelaste a tiempo, te devolveremos el abono al mismo medio de pago en los próximos días hábiles.
+              <?php endif; ?>
+            </div>
+          </div>
+          <?php if ($esAdmin): ?>
+            <form method="POST" class="cita-devolucion" onsubmit="return confirm('¿Ya devolviste el abono en el panel de Wompi? Se registrará el egreso en Finanzas.')">
+              <input type="hidden" name="action" value="registrar_devolucion">
+              <input type="hidden" name="pago_id" value="<?= (int)$abonoCita['id'] ?>">
+              <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+              <button type="submit" class="btn-home btn-home--primary">Ya lo devolví: registrar devolución</button>
+            </form>
+          <?php endif; ?>
+
+        <?php else: ?>
+          <div class="cita-aviso cita-aviso--alerta">
+            <span class="cita-aviso-icon">!</span>
+            <div>
+              <strong>El abono de <?= e(formatPrice((float)$abonoCita['amount'])) ?> no se devuelve</strong>
+              La cita se canceló con menos de <?= (int)$minimoCancelacion ?> horas de anticipación.
+            </div>
+          </div>
+          <?php if ($esAdmin): ?>
+            <form method="POST" class="cita-devolucion" onsubmit="return confirm('¿Devolver este abono aunque la cancelación fue tardía?')">
+              <input type="hidden" name="action" value="marcar_devolucion">
+              <input type="hidden" name="pago_id" value="<?= (int)$abonoCita['id'] ?>">
+              <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+              <button type="submit" class="btn-home">Devolverlo de todas formas</button>
+            </form>
+          <?php endif; ?>
+        <?php endif; ?>
+
       <?php else: ?>
 
       <div class="pago-montos">
@@ -373,6 +496,11 @@ $flash = getFlash();
                 <span class="cp-estado cp-estado--<?= $p['status'] === 'approved' ? 'ok' : ($p['status'] === 'pending' ? 'wait' : 'no') ?>">
                   <?= e(etiquetaEstadoPago($p['status'])) ?>
                 </span>
+                <?php if (($p['refund_status'] ?? 'none') !== 'none'): ?>
+                  <span class="cp-estado cp-estado--<?= $p['refund_status'] === 'done' ? 'ok' : 'wait' ?>">
+                    <?= e(etiquetaDevolucion($p['refund_status'])) ?>
+                  </span>
+                <?php endif; ?>
                 <?php if ($esAdmin && $p['provider'] === 'manual'): ?>
                   <form method="POST" class="cp-anular" onsubmit="return confirm('¿Anular este pago? También se borrará el ingreso en Finanzas.')">
                     <input type="hidden" name="action" value="anular_pago">
@@ -385,7 +513,7 @@ $flash = getFlash();
             </div>
           <?php endforeach; ?>
         </div>
-      <?php elseif ($total > 0): ?>
+      <?php elseif ($total > 0 && $cita['status'] !== 'cancelled'): ?>
         <p class="cita-vacio">Todavía no hay pagos registrados para esta cita.</p>
       <?php endif; ?>
     </div>
@@ -409,6 +537,9 @@ $flash = getFlash();
 
         <?php if (!$puedeRegistrar): ?>
           <p class="cita-vacio">Solo un administrador o el profesional asignado a esta cita pueden registrar su pago.</p>
+
+        <?php elseif ($cita['status'] === 'cancelled'): ?>
+          <p class="cita-vacio">La cita está cancelada: no se registran pagos del saldo.</p>
 
         <?php elseif ($total <= 0): ?>
           <p class="cita-vacio">Esta cita no tiene costo: no hay nada que cobrar.</p>
@@ -495,15 +626,41 @@ $flash = getFlash();
       <!-- ══════ PIE PARA EL CLIENTE ══════ -->
       <div class="cita-bloque">
         <h2 class="cita-bloque-titulo">¿Necesitas cambiar algo?</h2>
-        <p class="cita-ayuda">
-          Escríbenos y reprogramamos tu cita sin costo. Te pedimos avisar con al menos
-          24 horas de anticipación para poder liberar el horario.
-        </p>
+        <?php if (in_array($cita['status'], ['pending', 'confirmed'], true)): ?>
+          <p class="cita-ayuda">
+            Escríbenos y reprogramamos tu cita sin costo. También puedes cancelarla desde aquí hasta
+            <strong><?= (int)$minimoCancelacion ?> horas antes</strong>.
+            <?php if ($abonoCita): ?>
+              Si cancelas a tiempo te devolvemos el abono; después de ese plazo, el abono no es reembolsable.
+            <?php endif; ?>
+          </p>
+        <?php else: ?>
+          <p class="cita-ayuda">¿Quieres volver a agendar? Reserva una nueva cita cuando quieras.</p>
+        <?php endif; ?>
+
         <div class="pago-acciones" style="justify-content:flex-start;margin-top:16px">
           <a href="https://wa.me/<?= e(telefonoNegocioDigitos()) ?>?text=<?= rawurlencode('Hola, quiero consultar mi cita #' . $citaId) ?>"
              class="btn-home btn-home--primary" target="_blank" rel="noopener">Escribir por WhatsApp</a>
           <a href="/Blue/booking.php" class="btn-home">Reservar otra cita</a>
         </div>
+
+        <?php if ($cancelacion['puede']): ?>
+          <details class="cita-cancelar">
+            <summary>Cancelar mi cita</summary>
+            <form method="POST" class="cita-cancelar-form"
+                  onsubmit="return confirm('¿Seguro que quieres cancelar tu cita? Tu horario quedará libre para otra persona.')">
+              <input type="hidden" name="action" value="cancelar_cita">
+              <input type="hidden" name="t" value="<?= e($token) ?>">
+              <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+              <label for="motivoCancelacion">¿Nos cuentas por qué? <span>(opcional)</span></label>
+              <textarea id="motivoCancelacion" name="motivo" rows="2" maxlength="255"
+                        placeholder="Ej: me salió un viaje, prefiero otro día…"></textarea>
+              <button type="submit" class="btn-cancelar-cita">Sí, cancelar mi cita</button>
+            </form>
+          </details>
+        <?php elseif (in_array($cita['status'], ['pending', 'confirmed'], true) && $cancelacion['motivo']): ?>
+          <p class="cita-cancelar-no"><?= e($cancelacion['motivo']) ?></p>
+        <?php endif; ?>
       </div>
     <?php endif; ?>
 

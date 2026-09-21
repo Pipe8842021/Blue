@@ -102,6 +102,20 @@
   function mensajeDe(attr) { var m = attr && attr.match(RE_MSG); return m ? m[2] : null; }
   function esPeligro(msg) { return /elimin|borrar|cancelar|quitar/i.test(msg); }
 
+  // Textos de los botones según la acción: en «¿Cancelar esta cita?» los botones
+  // no pueden decir «Cancelar» y «Eliminar», porque se leen al revés.
+  function botonesPara(msg) {
+    if (/cancelar/i.test(msg)) return { confirmText: 'Sí, cancelar', cancelText: 'Volver' };
+    if (/quitar/i.test(msg))   return { confirmText: 'Quitar' };
+    return {};
+  }
+  function opcionesPara(msg) {
+    var o = botonesPara(msg);
+    o.message = msg;
+    o.danger  = esPeligro(msg);
+    return o;
+  }
+
   // Formularios con onsubmit="return confirm('...')"
   document.addEventListener('submit', function (e) {
     var form = e.target;
@@ -110,7 +124,7 @@
     if (!msg) return;
     e.preventDefault();
     e.stopImmediatePropagation();
-    open({ message: msg, danger: esPeligro(msg) }).then(function (ok) {
+    open(opcionesPara(msg)).then(function (ok) {
       if (ok) form.submit(); // form.submit() no vuelve a disparar onsubmit
     });
   }, true);
@@ -125,7 +139,7 @@
     if (!msg) return;
     e.preventDefault();
     e.stopImmediatePropagation();
-    open({ message: msg, danger: esPeligro(msg) }).then(function (ok) {
+    open(opcionesPara(msg)).then(function (ok) {
       if (!ok) return;
       if (el.form) el.form.submit();
       else if (el.tagName === 'A' && el.href) window.location.href = el.href;

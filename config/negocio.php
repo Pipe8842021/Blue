@@ -19,4 +19,10 @@ return [
     'correo'    => 'info@bluetherapy.com',
     'direccion' => 'Calle Principal #123, Centro Comercial Blue',
     'horario'   => 'Lun – Sáb · 8:00 am – 7:00 pm',
+
+    // ── Política de cancelación ──────────────────────────────
+    // El cliente puede cancelar desde su enlace hasta estas horas antes de la
+    // cita. Cancelar a tiempo deja el abono "por devolver"; después, solo el
+    // equipo cancela y el centro conserva el abono.
+    'horas_minimas_cancelacion' => 24,
 ];

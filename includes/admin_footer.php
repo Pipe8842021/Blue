@@ -29,7 +29,7 @@ window.addEventListener('resize', () => {
   sidebarToggle.style.display = window.innerWidth <= 768 ? 'flex' : 'none';
 });
 </script>
-<script src="/Blue/assets/js/confirm-modal.js"></script>
+<script src="/Blue/assets/js/confirm-modal.js?v=<?= @filemtime(__DIR__ . '/../assets/js/confirm-modal.js') ?>"></script>
 <script src="/Blue/assets/js/table-scroll.js"></script>
 </body>
 </html>

@@ -1,0 +1,147 @@
+/* ============================================================
+   BLUE THERAPY — Campana de avisos del panel (admin y staff)
+   La incluye includes/_campana_notificaciones.php.
+   Solo usa variables de admin.css.
+   ============================================================ */
+
+.campana { position: relative; }
+
+.campana-boton { position: relative; }
+.campana-contador {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--cancelled, #ef4444);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+.campana-contador[hidden] { display: none; }
+
+.campana-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 200;
+  width: 370px;
+  max-height: min(560px, 75vh);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.campana-panel[hidden] { display: none; }
+.campana-panel--derecha { left: 0; right: auto; }
+
+.campana-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--dark);
+}
+.campana-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--teal-dark);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.campana-link:hover { text-decoration: underline; }
+.campana-link[hidden] { display: none; }
+
+.campana-lista { overflow-y: auto; }
+.campana-vacio {
+  margin: 0;
+  padding: 26px 20px;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.campana-aviso {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 16px 12px 30px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text, var(--dark));
+  text-decoration: none;
+  transition: background var(--t);
+}
+.campana-aviso:last-child { border-bottom: 0; }
+.campana-aviso:hover { background: var(--bg-page); }
+
+/* Punto de color por tipo; los sin leer llevan fondo suave */
+.campana-aviso::before {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 17px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.campana-aviso.no-leido { background: var(--teal-light); }
+.campana-aviso.no-leido::before { background: var(--teal); }
+.campana-aviso--cita_cancelada.no-leido::before { background: var(--cancelled, #ef4444); }
+.campana-aviso--pago_aprobado.no-leido::before  { background: var(--confirmed, #10b981); }
+.campana-aviso--novedad.no-leido::before        { background: var(--gold); }
+
+.campana-aviso-titulo { font-size: 13.5px; font-weight: 600; color: var(--dark); }
+.campana-aviso-cuerpo { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+.campana-aviso-hace   { font-size: 11.5px; color: var(--muted); }
+
+.campana-novedad { border-top: 1px solid var(--border); background: var(--bg-page); }
+.campana-novedad summary {
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--teal-dark);
+  cursor: pointer;
+  list-style: none;
+}
+.campana-novedad summary::-webkit-details-marker { display: none; }
+.campana-novedad summary::before { content: '+ '; }
+.campana-novedad[open] summary::before { content: '− '; }
+.campana-novedad form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 16px 14px;
+}
+.campana-novedad textarea { resize: vertical; }
+.campana-novedad-pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.campana-novedad-estado { font-size: 12px; color: var(--muted); }
+
+@media (max-width: 520px) {
+  .campana-panel {
+    position: fixed;
+    top: 62px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+  }
+}

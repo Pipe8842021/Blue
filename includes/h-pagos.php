@@ -18,6 +18,8 @@
 // Trae también h-reservas.php (citaConDetalle, urlEstadoCita, etc.): las
 // funciones de este archivo avisan por correo cuando cambia el estado.
 require_once __DIR__ . '/h-correo.php';
+// Avisos al equipo en la campana del panel (abono aprobado).
+require_once __DIR__ . '/h-notificaciones.php';
 
 // ── Estados de Wompi traducidos a los nuestros ──────────────
 const ESTADOS_WOMPI = [
@@ -448,6 +450,7 @@ function aplicarResultadoPago(PDO $db, array $pago, array $transaccion): array {
     if ($resultado['aplicado']) {
         if ($resultado['status'] === 'approved') {
             avisarPorCorreoSiCorresponde($db, $resultado['appointment_id'], 'confirmada');
+            avisarReservaAlEquipo($db, $resultado['appointment_id'], 'pago_aprobado');
         } elseif (in_array($estado, ['declined', 'voided', 'error'], true)) {
             $motivo = $estado === 'declined'
                 ? 'El banco no autorizó la transacción.'

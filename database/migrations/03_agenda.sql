@@ -55,3 +55,33 @@ CREATE TABLE IF NOT EXISTS staff_services (
 
 -- La disponibilidad consulta las citas de un día por profesional.
 ALTER TABLE appointments ADD INDEX IF NOT EXISTS idx_appointments_fecha_staff (date, staff_id);
+
+-- ============================================================
+-- Cancelaciones y notificaciones internas (tarea 6)
+-- ------------------------------------------------------------
+-- Quién canceló la cita, cuándo y por qué. El cliente puede cancelar
+-- desde su enlace con la anticipación mínima de config/negocio.php.
+--   cancelled_by: cliente · equipo · sistema (pago vencido o rechazado)
+-- ============================================================
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS cancelled_at DATETIME NULL AFTER notes;
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS cancelled_by ENUM('cliente','equipo','sistema') NULL AFTER cancelled_at;
+ALTER TABLE appointments ADD COLUMN IF NOT EXISTS cancel_reason VARCHAR(255) NULL AFTER cancelled_by;
+
+-- Una fila por aviso y por persona del equipo (campana del panel).
+-- `read_at` en NULL = sin leer. Si se borra la cita, se borran sus avisos.
+CREATE TABLE IF NOT EXISTS notifications (
+    id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id        INT UNSIGNED NOT NULL,
+    type           VARCHAR(40)  NOT NULL COMMENT 'reserva_nueva · pago_aprobado · cita_cancelada · novedad',
+    title          VARCHAR(150) NOT NULL,
+    body           VARCHAR(500) NULL,
+    url            VARCHAR(255) NULL,
+    appointment_id INT UNSIGNED NULL,
+    read_at        DATETIME     NULL,
+    created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_notifications_usuario (user_id, read_at, created_at),
+    CONSTRAINT fk_notifications_user
+        FOREIGN KEY (user_id)        REFERENCES users(id)        ON DELETE CASCADE,
+    CONSTRAINT fk_notifications_appointment
+        FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
