@@ -25,4 +25,16 @@ return [
     // cita. Cancelar a tiempo deja el abono "por devolver"; después, solo el
     // equipo cancela y el centro conserva el abono.
     'horas_minimas_cancelacion' => 24,
+
+    // ── «Otro servicio» ──────────────────────────────────────
+    // Minutos que ocupa en la agenda una cita de un servicio fuera del
+    // catálogo (el cliente lo describe y el equipo lo cotiza después).
+    'otro_servicio_minutos' => 30,
+
+    // ── Tienda ───────────────────────────────────────────────
+    // Un pedido que nadie pagó se anula solo pasadas estas horas y su stock vuelve al
+    // inventario (evita que pedidos abandonados dejen un producto «agotado» para siempre).
+    // Aplica a los pedidos que el equipo cobra a mano; los de la pasarela vencen según
+    // `minutos_reserva` de config/wompi.php. 0 = nunca se anulan solos.
+    'horas_pedido_sin_pago' => 48,
 ];

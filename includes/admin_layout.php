@@ -21,7 +21,9 @@ $navItems = [
     ['slug' => 'dashboard',    'label' => 'Dashboard',    'href' => '/Blue/admin/',               'icon' => '<path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>'],
     ['slug' => 'appointments', 'label' => 'Citas',        'href' => '/Blue/admin/appointments.php','icon' => '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'],
     ['slug' => 'services',     'label' => 'Servicios',    'href' => '/Blue/admin/services.php',    'icon' => '<path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/>'],
-    ['slug' => 'clients',      'label' => 'Clientes',     'href' => '/Blue/admin/clients.php',     'icon' => '<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>'],
+    ['slug' => 'products',     'label' => 'Productos',    'href' => '/Blue/admin/products.php',    'icon' => '<path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>'],
+    ['slug' => 'orders',       'label' => 'Pedidos',      'href' => '/Blue/admin/orders.php',      'icon' => '<path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><polyline points="3 8 12 13 21 8"/><line x1="12" y1="13" x2="12" y2="21"/>'],
+    ['slug' => 'clients',      'label' => 'Clientes',    'href' => '/Blue/admin/clients.php',     'icon' => '<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>'],
     ['slug' => 'finances',     'label' => 'Finanzas',     'href' => '/Blue/admin/finances.php',    'icon' => '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>'],
     ['slug' => 'gallery',      'label' => 'Galería',      'href' => '/Blue/admin/gallery.php',     'icon' => '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>'],
     ['slug' => 'settings',     'label' => 'Configuración','href' => '/Blue/admin/settings.php',    'icon' => '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>'],
@@ -33,6 +35,14 @@ try {
     $pendingCount = (int)$db->query("SELECT COUNT(*) FROM appointments WHERE status = 'pending'")->fetchColumn();
 } catch (Exception $e) {
     $pendingCount = 0;
+}
+
+// Badge de pedidos de la tienda por atender (pagados o en preparación). Si la
+// migración de la tienda aún no se corrió, simplemente no se muestra.
+try {
+    $pedidosPendientes = (int)$db->query("SELECT COUNT(*) FROM orders WHERE status IN ('paid','preparing')")->fetchColumn();
+} catch (Exception $e) {
+    $pedidosPendientes = 0;
 }
 ?>
 <!DOCTYPE html>
@@ -76,6 +86,9 @@ try {
         <?= $item['label'] ?>
         <?php if ($item['slug'] === 'appointments' && $pendingCount > 0): ?>
           <span class="sidebar-badge"><?= $pendingCount ?></span>
+        <?php endif; ?>
+        <?php if ($item['slug'] === 'orders' && $pedidosPendientes > 0): ?>
+          <span class="sidebar-badge"><?= $pedidosPendientes ?></span>
         <?php endif; ?>
       </a>
     <?php endforeach; ?>

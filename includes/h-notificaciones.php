@@ -24,15 +24,15 @@ require_once __DIR__ . '/h-reservas.php';   // citaConDetalle(), serviciosDeCita
  * Crea el aviso para cada persona indicada.
  * @return int cuántos avisos se crearon
  */
-function notificar(PDO $db, array $userIds, string $tipo, string $titulo, string $cuerpo = '', ?string $url = null, ?int $citaId = null): int {
+function notificar(PDO $db, array $userIds, string $tipo, string $titulo, string $cuerpo = '', ?string $url = null, ?int $citaId = null, ?int $pedidoId = null): int {
     $insertar = $db->prepare(
-        'INSERT INTO notifications (user_id, type, title, body, url, appointment_id) VALUES (?, ?, ?, ?, ?, ?)'
+        'INSERT INTO notifications (user_id, type, title, body, url, appointment_id, order_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
     );
     $creados = 0;
     foreach (array_unique(array_map('intval', $userIds)) as $userId) {
         if ($userId <= 0) continue;
         $insertar->execute([
-            $userId, $tipo, mb_substr($titulo, 0, 150), mb_substr($cuerpo, 0, 500) ?: null, $url, $citaId,
+            $userId, $tipo, mb_substr($titulo, 0, 150), mb_substr($cuerpo, 0, 500) ?: null, $url, $citaId, $pedidoId,
         ]);
         $creados++;
     }

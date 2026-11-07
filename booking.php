@@ -5,6 +5,7 @@ require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/h-negocio.php';
 require_once __DIR__ . '/includes/h-pagos.php';
 require_once __DIR__ . '/includes/h-correo.php';
+require_once __DIR__ . '/includes/h-iconos.php';
 
 // Cabeceras de seguridad
 header('X-Frame-Options: DENY');
@@ -32,7 +33,13 @@ try {
     $categories = [];
 }
 
-$catIcons = ['body'=>'🫀','face'=>'✨','laser'=>'💫','spa'=>'🌿','therapy'=>'🔬'];
+$catIcons = [
+  'body'    => iconoSvg('corazon', 15),
+  'face'    => iconoSvg('brillo', 15),
+  'laser'   => iconoSvg('rayo', 15),
+  'spa'     => iconoSvg('hoja', 15),
+  'therapy' => iconoSvg('pulso', 15),
+];
 
 // ── Pago del abono ────────────────────────────────────────
 // Si la pasarela no tiene llaves configuradas, el wizard sigue
@@ -213,6 +220,31 @@ $correoActivo = correoActivo();
       </div>
     <?php endif; ?>
 
+    <!-- Servicio fuera del catálogo: el cliente lo describe y el equipo lo cotiza.
+         Se agenda solo y no se paga en línea (ver reservaEsSinCosto en h-reservas.php). -->
+    <div class="otro-servicio" id="otro-servicio">
+      <label class="otro-servicio-cabecera" for="otro-chk">
+        <input type="checkbox" id="otro-chk">
+        <span class="otro-servicio-icono">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        </span>
+        <span class="otro-servicio-titulo">
+          <strong>Otro servicio</strong>
+          <em>¿No ves lo que buscas? Cuéntanos qué necesitas</em>
+        </span>
+        <span class="otro-servicio-marca">✓</span>
+      </label>
+      <div class="otro-servicio-detalle" id="otro-detalle" hidden>
+        <label for="otro-texto">¿Qué servicio necesitas?</label>
+        <textarea id="otro-texto" rows="3" maxlength="<?= OTRO_SERVICIO_MAX_CARACTERES ?>"
+                  placeholder="Descríbelo con tus palabras: qué zona, qué tratamiento o qué resultado buscas."></textarea>
+        <div class="otro-servicio-pie">
+          <span>El equipo revisará tu solicitud, te dirá el valor y confirmará la cita.</span>
+          <span id="otro-contador">0/<?= OTRO_SERVICIO_MAX_CARACTERES ?></span>
+        </div>
+      </div>
+    </div>
+
     <!-- La cita de valoración se agenda sola: booking.js muestra esto al elegirla -->
     <div class="valoracion-aviso" id="valoracion-aviso" hidden>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
@@ -259,11 +291,11 @@ $correoActivo = correoActivo();
         Disponible
       </div>
       <div class="legend-item">
-        <span class="legend-dot" style="background:#fff0f0;border:1.5px solid rgba(224,85,85,.25);color:#d05050">Ocupado</span>
+        <span class="legend-dot" style="background:#fff0f0;border:1.5px solid rgba(224,85,85,.25)"></span>
         Ocupado
       </div>
       <div class="legend-item">
-        <span class="legend-dot" style="background:#f5f5f5;color:#c0c0c0;font-size:8px">Cerrado</span>
+        <span class="legend-dot" style="background:#f5f5f5"></span>
         Cerrado
       </div>
       <div class="legend-item">
@@ -273,7 +305,7 @@ $correoActivo = correoActivo();
     </div>
 
     <div class="slot-banner" id="slot-banner">
-      <span>📅</span>
+      <span><?= iconoSvg('calendario') ?></span>
       <span>Seleccionaste: <strong id="slot-banner-text"></strong></span>
     </div>
   </div>
@@ -349,7 +381,7 @@ $correoActivo = correoActivo();
       <div class="pago-resumen" id="pago-resumen"></div>
 
       <div class="pago-aviso">
-        <span class="pago-aviso-icon">⏱</span>
+        <span class="pago-aviso-icon"><?= iconoSvg('reloj', 20) ?></span>
         <div>
           <strong>Te guardamos el horario <?= (int)$pagoJs['minutos'] ?> minutos</strong>
           Si el pago no se completa en ese tiempo, el cupo vuelve a quedar disponible para otras personas.
@@ -396,7 +428,7 @@ $correoActivo = correoActivo();
       </p>
       <div class="confirm-details"><div class="confirm-details-grid" id="s4-details"></div></div>
       <div class="confirm-notice">
-        <span class="confirm-notice-icon">💬</span>
+        <span class="confirm-notice-icon"><?= iconoSvg('mensaje', 22) ?></span>
         <div>
           <strong style="display:block;margin-bottom:4px;color:#92580a">Tu cita está pendiente de confirmación</strong>
           El equipo de Blue Therapy revisará tu solicitud y se pondrá en contacto contigo por WhatsApp al número que indicaste para confirmar la cita, coordinar el anticipo si aplica y cualquier detalle adicional.
@@ -412,7 +444,7 @@ $correoActivo = correoActivo();
 
     <!-- Error -->
     <div id="s4-error" class="error-wrap" style="display:none">
-      <div class="error-icon">😞</div>
+      <div class="error-icon"><?= iconoSvg('alerta', 44) ?></div>
       <div class="confirm-title" style="font-size:20px">Algo salió mal</div>
       <p class="error-msg" id="s4-error-msg">Por favor intenta de nuevo.</p>
       <button class="btn-back-step" onclick="goToStep(3)">← Volver a mis datos</button>
@@ -451,21 +483,21 @@ $correoActivo = correoActivo();
 
     <div class="sidebar-info">
       <div class="sidebar-info-item">
-        <div class="sii-icon">📍</div>
+        <div class="sii-icon"><?= iconoSvg('pin', 15) ?></div>
         <div>
           <div class="sii-label">Dirección</div>
           <div class="sii-value"><?= e(datoNegocio('direccion')) ?></div>
         </div>
       </div>
       <div class="sidebar-info-item">
-        <div class="sii-icon">🕐</div>
+        <div class="sii-icon"><?= iconoSvg('reloj', 15) ?></div>
         <div>
           <div class="sii-label">Horario</div>
           <div class="sii-value"><?= e(datoNegocio('horario')) ?></div>
         </div>
       </div>
       <div class="sidebar-info-item">
-        <div class="sii-icon">📞</div>
+        <div class="sii-icon"><?= iconoSvg('telefono', 15) ?></div>
         <div>
           <div class="sii-label">Teléfono</div>
           <div class="sii-value"><?= e(datoNegocio('telefono')) ?></div>
@@ -482,6 +514,8 @@ $correoActivo = correoActivo();
 <script>
 // Reglas del abono que usa booking.js (las mismas de config/wompi.php).
 window.BLUE_PAGOS = <?= json_encode($pagoJs, JSON_UNESCAPED_UNICODE) ?>;
+// Tiempo que ocupa en la agenda «Otro servicio» (config/negocio.php).
+window.BLUE_OTRO = <?= json_encode(['minutos' => duracionOtroServicio()]) ?>;
 </script>
 <script src="/Blue/assets/js/booking.js?v=<?= @filemtime(__DIR__ . '/assets/js/booking.js') ?>"></script>
 </body>

@@ -19,6 +19,7 @@ require_once __DIR__ . '/includes/h-reservas.php';
 require_once __DIR__ . '/includes/h-pagos.php';
 require_once __DIR__ . '/includes/h-negocio.php';
 require_once __DIR__ . '/includes/h-cancelaciones.php';
+require_once __DIR__ . '/includes/h-iconos.php';
 
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
@@ -60,6 +61,7 @@ if (!$cita || (!$esPersonal && !$accesoCliente)) {
 // solo pinta el mensaje de "no encontrada" y nada de esto se usa.
 $servicios      = [];
 $total          = 0.0;
+$porCotizar     = false;
 $resumen        = ['abono' => 0.0, 'saldo_pagado' => 0.0, 'pagado' => 0.0,
                    'pendiente' => 0.0, 'esta_saldada' => false, 'ingreso_externo' => 0.0];
 $pagos          = [];
@@ -77,6 +79,8 @@ $puedeRegistrar = false;
 if (empty($noEncontrada)) {
     $servicios = serviciosDeCita($db, $citaId);
     $total     = array_sum(array_map(fn($s) => (float)$s['price'], $servicios));
+    // «Otro servicio»: aún no tiene precio. No es lo mismo que «sin costo» (la valoración).
+    $porCotizar = !empty($cita['other_service']);
 
     // Un profesional solo administra el dinero de las citas que tiene asignadas.
     $puedeRegistrar = $esAdmin || ($esStaff && (int)$cita['staff_id'] === (int)$usuario['id']);
@@ -316,7 +320,9 @@ $flash = getFlash();
         <div class="pago-detalle-fila">
           <span class="pago-detalle-label">Profesional</span>
           <span class="pago-detalle-valor">
-            <?= $cita['staff_nombre'] ? e($cita['staff_nombre']) : 'Se asignará al confirmar' ?>
+            <?= $cita['staff_nombre']
+                ? etiquetaProfesional($cita['staff_nombre'], colorDeProfesional(coloresProfesionales($db), (int)$cita['staff_id']))
+                : 'Se asignará al confirmar' ?>
           </span>
         </div>
         <div class="pago-detalle-fila">
@@ -350,12 +356,12 @@ $flash = getFlash();
           <?php foreach ($servicios as $s): ?>
             <div class="cs-fila">
               <span class="cs-nombre"><?= e($s['name']) ?><em><?= (int)$s['duration_min'] ?> min</em></span>
-              <span class="cs-precio"><?= (float)$s['price'] > 0 ? e(formatPrice((float)$s['price'])) : 'Sin costo' ?></span>
+              <span class="cs-precio"><?= !empty($s['otro']) ? 'Por cotizar' : ((float)$s['price'] > 0 ? e(formatPrice((float)$s['price'])) : 'Sin costo') ?></span>
             </div>
           <?php endforeach; ?>
           <div class="cs-fila cs-fila--total">
             <span>Total</span>
-            <span><?= $total > 0 ? e(formatPrice($total)) : 'Sin costo' ?></span>
+            <span><?= $porCotizar ? 'Por cotizar' : ($total > 0 ? e(formatPrice($total)) : 'Sin costo') ?></span>
           </div>
         </div>
       <?php endif; ?>
@@ -370,8 +376,13 @@ $flash = getFlash();
         <div class="cita-aviso cita-aviso--ok">
           <span class="cita-aviso-icon">✓</span>
           <div>
-            <strong>Esta cita no tiene costo</strong>
-            No requiere abono ni pago en el centro.
+            <?php if ($porCotizar): ?>
+              <strong>Tu servicio está por cotizar</strong>
+              El equipo te dirá el valor y cómo pagarlo cuando confirme tu cita. No tienes que pagar nada ahora.
+            <?php else: ?>
+              <strong>Esta cita no tiene costo</strong>
+              No requiere abono ni pago en el centro.
+            <?php endif; ?>
           </div>
         </div>
 
@@ -459,7 +470,7 @@ $flash = getFlash();
         </div>
       <?php elseif ($resumen['pendiente'] > 0): ?>
         <div class="cita-aviso">
-          <span class="cita-aviso-icon">💳</span>
+          <span class="cita-aviso-icon"><?= iconoSvg('tarjeta', 18) ?></span>
           <div>
             <strong>Queda un saldo de <?= e(formatPrice($resumen['pendiente'])) ?></strong>
             Se paga en el centro el día de la cita. Aceptamos efectivo, tarjeta, Nequi y transferencia.
@@ -542,7 +553,9 @@ $flash = getFlash();
           <p class="cita-vacio">La cita está cancelada: no se registran pagos del saldo.</p>
 
         <?php elseif ($total <= 0): ?>
-          <p class="cita-vacio">Esta cita no tiene costo: no hay nada que cobrar.</p>
+          <p class="cita-vacio"><?= $porCotizar
+            ? 'Esta cita es de «Otro servicio» y todavía no tiene precio: cotízala con el cliente y cámbiala a un servicio del catálogo (Editar cita) para poder cobrarla.'
+            : 'Esta cita no tiene costo: no hay nada que cobrar.' ?></p>
 
         <?php elseif ($resumen['pendiente'] <= 0): ?>
           <p class="cita-vacio">No hay saldo pendiente: la cita ya está pagada por completo.</p>

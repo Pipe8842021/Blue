@@ -59,7 +59,10 @@ require_once __DIR__ . '/../includes/admin_layout.php';
 
 <div class="page-head">
   <div>
-    <h2>Agenda de <?= e($profesional['name']) ?></h2>
+    <h2 style="display:flex;align-items:center;gap:10px">
+      <?= puntoColorProfesional(colorDeProfesional(coloresProfesionales($db), $staffId)) ?>
+      Agenda de <?= e($profesional['name']) ?>
+    </h2>
     <p>Horario de atención y servicios que realiza en la reserva en línea</p>
   </div>
 </div>

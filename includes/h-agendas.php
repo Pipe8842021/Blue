@@ -21,6 +21,9 @@
  *   pasado  · la hora ya pasó
  */
 
+// Color de cada profesional (las chips de la reserva en línea).
+require_once __DIR__ . '/h-colores.php';
+
 // ── Modo general (sin agendas) ──────────────────────────────
 const AGENDA_GENERAL_DIAS  = [1, 2, 3, 4, 5, 6];   // lunes a sábado (0 = domingo)
 const AGENDA_GENERAL_DESDE = '08:00';
@@ -144,8 +147,13 @@ function horariosPorProfesional(PDO $db, array $staffIds): array {
     return $horarios;
 }
 
-/** Duración de una cita con estos servicios: mínimo 30 min (60 si no hay servicios válidos). */
-function duracionDeServicios(PDO $db, array $serviceIds): int {
+/**
+ * Duración de una cita con estos servicios: mínimo 30 min (60 si no hay servicios válidos).
+ * Con $esOtroServicio (servicio fuera del catálogo) es el tiempo fijo de config/negocio.php.
+ */
+function duracionDeServicios(PDO $db, array $serviceIds, bool $esOtroServicio = false): int {
+    if ($esOtroServicio) return duracionOtroServicio();
+
     $ids = idsLimpios($serviceIds);
     if (!$ids) return 60;
 
@@ -274,11 +282,13 @@ function evaluarHorario(array $ctx, string $fecha, int $inicio, int $duracion, i
  *
  * @param string $lunes       primer día de la semana (Y-m-d)
  * @param int    $staffPedido 0 = «cualquiera»; si no hace los servicios, se vuelve a 0
+ * @param bool   $esOtroServicio la cita es de «Otro servicio» (sin servicios del catálogo)
  */
-function disponibilidadSemana(PDO $db, string $lunes, array $serviceIds, int $staffPedido): array {
+function disponibilidadSemana(PDO $db, string $lunes, array $serviceIds, int $staffPedido, bool $esOtroServicio = false): array {
     $domingo  = date('Y-m-d', strtotime($lunes . ' +6 days'));
-    $duracion = duracionDeServicios($db, $serviceIds);
+    $duracion = duracionDeServicios($db, $serviceIds, $esOtroServicio);
     $ctx      = contextoAgenda($db, $lunes, $domingo, $serviceIds);
+    $colores  = coloresProfesionales($db);
 
     if ($ctx['modo'] !== 'agendas' || !isset($ctx['horarios'][$staffPedido])) {
         $staffPedido = 0;
@@ -329,7 +339,13 @@ function disponibilidadSemana(PDO $db, string $lunes, array $serviceIds, int $st
         'duracion'      => $duracion,
         'staff_id'      => $staffPedido,
         'profesionales' => array_map(
-            fn($p) => ['id' => $p['id'], 'nombre' => $p['nombre'], 'iniciales' => inicialesDeNombre($p['nombre'])],
+            fn($p) => [
+                'id'        => $p['id'],
+                'nombre'    => $p['nombre'],
+                'iniciales' => inicialesDeNombre($p['nombre']),
+                'color'     => colorDeProfesional($colores, $p['id']),
+                'texto'     => colorTextoSobre(colorDeProfesional($colores, $p['id'])),
+            ],
             array_values($ctx['profesionales'])
         ),
         'dias'          => $dias,

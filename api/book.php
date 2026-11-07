@@ -60,10 +60,11 @@ try {
 
 // ── Con abono obligatorio, este camino solo acepta la valoración ──
 // Cualquier otra reserva nace desde api/pago_iniciar.php, que aparta el cupo
-// contra un pago. La cita de valoración no tiene costo: entra directo por aquí.
+// contra un pago. La valoración (sin costo) y «Otro servicio» (el equipo lo
+// cotiza) entran directo por aquí.
 // Se valida en el servidor y no solo en el wizard, para que no se pueda
 // saltar el pago llamando a esta URL.
-if (abonoEsObligatorio() && !reservaEsValoracion($db, $datos['services'])) {
+if (abonoEsObligatorio() && !reservaEsSinCosto($db, $datos)) {
     http_response_code(409);
     echo json_encode(['error' => 'Para agendar debes pagar el abono. Recarga la página e intenta de nuevo.']);
     exit;

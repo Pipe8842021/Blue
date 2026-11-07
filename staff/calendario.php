@@ -36,6 +36,7 @@ $nextYm     = date('Y-m', strtotime($primero . ' +1 month'));
 $hoy        = date('Y-m-d');
 
 $citasMes = citasDelMes($db, $myId, $year, $month);
+$miColor  = colorDeProfesional(coloresProfesionales($db), $myId);   // tu color, el mismo que ve el administrador
 
 $mesesEs = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
@@ -81,9 +82,12 @@ require_once __DIR__ . '/_layout.php';
         </div>
         <div class="cal-chips">
           <?php foreach ($delDia as $c): ?>
-            <div class="cal-chip cal-<?= e($c['status']) ?>" title="<?= e(date('g:i A', strtotime($c['time_start'])) . ' · ' . $c['client_name'] . ' · ' . ($c['services'] ?? '')) ?>">
+            <div class="cal-chip cal-<?= e($c['status']) ?>"
+                 style="--staff:<?= e($miColor) ?>;--staff-bg:<?= e(fondoSuaveProfesional($miColor)) ?>"
+                 title="<?= e(date('g:i A', strtotime($c['time_start'])) . ' · ' . $c['client_name'] . ' · ' . ($c['services'] ?? '')) ?>">
               <span class="cal-chip-time"><?= date('g:i', strtotime($c['time_start'])) ?></span>
               <span class="cal-chip-name"><?= e($c['client_name']) ?></span>
+              <i class="cal-chip-estado cal-<?= e($c['status']) ?>"></i>
             </div>
           <?php endforeach; ?>
         </div>
@@ -96,6 +100,9 @@ require_once __DIR__ . '/_layout.php';
     <span><i class="cal-dot cal-confirmed"></i> Confirmada</span>
     <span><i class="cal-dot cal-completed"></i> Atendida</span>
     <span><i class="cal-dot cal-cancelled"></i> Cancelada</span>
+  </div>
+  <div class="cal-legend cal-legend-equipo">
+    <span><?= puntoColorProfesional($miColor) ?> Tu color en el calendario del equipo</span>
   </div>
 </div></div>
 

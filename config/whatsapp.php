@@ -61,6 +61,8 @@ $config = [
         'novedad_equipo'         => 'aviso_novedad_equipo',
         // {{1}} nombre del cliente · {{2}} fecha · {{3}} hora
         'cita_cancelada_cliente' => 'cita_cancelada',
+        // {{1}} nombre del cliente · {{2}} número de pedido (ej. #12). Avisa que ya puede recogerlo.
+        'pedido_listo_cliente'   => 'pedido_listo',
     ],
 
     // Avisos internos que además llegan por WhatsApp a quien tenga celular

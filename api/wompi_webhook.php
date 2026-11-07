@@ -17,6 +17,7 @@ header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/h-pagos.php';
+require_once __DIR__ . '/../includes/h-pedidos.php';   // pagos de la tienda (referencias PED-…)
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -44,7 +45,22 @@ $transaccion = $evento['data']['transaction'];
 $referencia  = (string)($transaccion['reference'] ?? '');
 
 try {
-    $db   = getDB();
+    $db = getDB();
+
+    // Pedidos de la tienda: tienen su propia tabla de pagos (referencia PED-…).
+    if (referenciaEsDePedido($referencia)) {
+        $pagoPedido = buscarPagoPedidoPorReferencia($db, $referencia);
+        if (!$pagoPedido) {
+            error_log('[Blue/Wompi] Evento sin pedido asociado: ' . $referencia);
+            echo json_encode(['ok' => true, 'ignorado' => true]);
+            exit;
+        }
+        $confirmada = !empty($transaccion['id']) ? consultarTransaccionWompi((string)$transaccion['id']) : null;
+        $resultado  = aplicarResultadoPedido($db, $pagoPedido, $confirmada ?? $transaccion);
+        echo json_encode(['ok' => true, 'estado' => $resultado['status']]);
+        exit;
+    }
+
     $pago = $referencia !== '' ? buscarPagoPorReferencia($db, $referencia) : null;
 
     if (!$pago) {

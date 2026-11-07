@@ -21,6 +21,16 @@ function telefonoNegocioDigitos(): string {
     return preg_replace('/\D+/', '', datoNegocio('telefono'));
 }
 
+/** Minutos que ocupa en la agenda una cita de «Otro servicio» (mínimo 15). */
+function duracionOtroServicio(): int {
+    return max(15, (int)(configNegocio()['otro_servicio_minutos'] ?? 30));
+}
+
+/** Horas tras las que un pedido de la tienda sin pagar se anula solo (0 = nunca). */
+function horasPedidoSinPago(): int {
+    return max(0, (int)(configNegocio()['horas_pedido_sin_pago'] ?? 48));
+}
+
 /** Horas mínimas de anticipación para que el cliente cancele su cita (política del negocio). */
 function horasMinimasCancelacion(): int {
     return max(0, (int)(configNegocio()['horas_minimas_cancelacion'] ?? 24));

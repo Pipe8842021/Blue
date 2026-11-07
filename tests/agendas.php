@@ -329,8 +329,9 @@ if ($codigo === 0) {
     comprobar('La disponibilidad responde en modo agendas', $codigo === 200 && ($datos['modo'] ?? '') === 'agendas', "HTTP {$codigo}");
     $nombres = array_column($datos['profesionales'] ?? [], 'nombre', 'id');
     comprobar('Lista a las profesionales que hacen el servicio', isset($nombres[$staffA], $nombres[$staffB]));
-    comprobar('Solo expone id, nombre e iniciales de cada profesional',
-        array_keys($datos['profesionales'][0] ?? []) === ['id', 'nombre', 'iniciales']);
+    // Nada de correo, teléfono ni rol: solo lo que la reserva necesita para dibujar a cada profesional.
+    comprobar('Solo expone id, nombre, iniciales y color de cada profesional',
+        array_keys($datos['profesionales'][0] ?? []) === ['id', 'nombre', 'iniciales', 'color', 'texto']);
 
     $cookies = tempnam(sys_get_temp_dir(), 'blue');
     [, $html] = http("{$base}/booking.php", ['cookies' => $cookies]);

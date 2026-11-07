@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/session.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/h-agenda.php';   // sqlServiciosDeCita()
 
 requireRole('admin', '/Blue/login.php');
 $db = getDB();
@@ -83,7 +84,7 @@ $clients = $stmt->fetchAll();
 $citasPorCliente = [];
 foreach ($db->query("
     SELECT a.client_id, a.date, a.time_start, a.status,
-           GROUP_CONCAT(DISTINCT sv.name ORDER BY sv.name SEPARATOR ', ') AS services,
+           " . sqlServiciosDeCita() . " AS services,
            COALESCE(SUM(sv.price),0) AS total
     FROM appointments a
     LEFT JOIN appointment_services aps ON aps.appointment_id = a.id

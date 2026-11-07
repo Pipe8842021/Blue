@@ -64,10 +64,11 @@ try {
 
     // Próximas citas
     $up = $db->prepare("
-        SELECT a.id, a.date, a.time_start, a.status, c.name AS client_name,
-               GROUP_CONCAT(DISTINCT sv.name ORDER BY sv.name SEPARATOR ', ') AS services
+        SELECT a.id, a.date, a.time_start, a.status, a.staff_id, c.name AS client_name, u.name AS staff_name,
+               " . sqlServiciosDeCita() . " AS services
         FROM appointments a
         JOIN clients c ON a.client_id = c.id
+        LEFT JOIN users u ON u.id = a.staff_id
         LEFT JOIN appointment_services aps ON aps.appointment_id = a.id
         LEFT JOIN services sv ON sv.id = aps.service_id
         WHERE a.date >= ? AND a.status IN ('pending','confirmed')
@@ -77,10 +78,11 @@ try {
 
     // Solicitudes recientes
     $recent = $db->query("
-        SELECT a.id, a.date, a.time_start, a.status, c.name AS client_name,
-               GROUP_CONCAT(DISTINCT sv.name ORDER BY sv.name SEPARATOR ', ') AS services
+        SELECT a.id, a.date, a.time_start, a.status, a.staff_id, c.name AS client_name, u.name AS staff_name,
+               " . sqlServiciosDeCita() . " AS services
         FROM appointments a
         JOIN clients c ON a.client_id = c.id
+        LEFT JOIN users u ON u.id = a.staff_id
         LEFT JOIN appointment_services aps ON aps.appointment_id = a.id
         LEFT JOIN services sv ON sv.id = aps.service_id
         GROUP BY a.id ORDER BY a.created_at DESC LIMIT 6")->fetchAll();
@@ -91,8 +93,9 @@ try {
 
 $estadoTotal = array_sum($estadoMap);
 $topMax = $topServicios ? max(array_map(fn($r) => (int)$r['c'], $topServicios)) : 0;
+$colores = coloresProfesionales($db);   // color de cada profesional en las listas de citas
 
-function miniLista(array $citas): string {
+function miniLista(array $citas, array $colores = []): string {
     if (empty($citas)) {
         return '<div class="empty-state" style="padding:30px 20px"><div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><div class="empty-state-desc">Nada por aquí todavía.</div></div>';
     }
@@ -101,7 +104,13 @@ function miniLista(array $citas): string {
         $html .= '<li class="mini-item">';
         $html .= '<div class="mini-avatar">' . mb_substr($a['client_name'], 0, 1) . '</div>';
         $html .= '<div class="mini-main"><div class="mini-name">' . e($a['client_name']) . '</div>';
-        $html .= '<div class="mini-sub">' . e($a['services'] ?? '—') . '</div></div>';
+        $html .= '<div class="mini-sub">' . e($a['services'] ?? '—') . '</div>';
+        // Con quién es la cita: el color de la profesional se reconoce de un vistazo.
+        if (!empty($a['staff_name'])) {
+            $html .= '<div class="mini-sub" style="margin-top:3px">'
+                   . etiquetaProfesional($a['staff_name'], colorDeProfesional($colores, (int)$a['staff_id'])) . '</div>';
+        }
+        $html .= '</div>';
         $html .= '<div class="mini-meta">' . badgeEstadoCita($a['status'])
                . '<div class="mini-time">' . date('d M', strtotime($a['date'])) . ' · ' . date('g:i A', strtotime($a['time_start'])) . '</div></div>';
         $html .= '</li>';
@@ -119,7 +128,7 @@ function miniLista(array $citas): string {
   <div class="stat-card amber">
     <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg></div>
     <div class="stat-body"><div class="stat-value"><?= $stats['pending'] ?></div><div class="stat-label">Pendientes de confirmar</div>
-      <?php if ($stats['pending'] > 0): ?><div class="stat-trend"><a href="/Blue/admin/appointments.php?status=pending" style="color:inherit;text-decoration:underline;font-size:11px">Ver todas →</a></div><?php endif; ?>
+      <?php if ($stats['pending'] > 0): ?><div class="stat-trend"><a href="/Blue/admin/appointments.php?status=pending">Ver todas →</a></div><?php endif; ?>
     </div>
   </div>
   <div class="stat-card green">
@@ -171,12 +180,12 @@ function miniLista(array $citas): string {
 
   <div class="card">
     <div class="card-header"><span class="card-title">Próximas citas</span><a href="/Blue/admin/appointments.php" class="dash-link">Ver todas</a></div>
-    <div class="card-body--flush"><?= miniLista($proximas) ?></div>
+    <div class="card-body--flush"><?= miniLista($proximas, $colores) ?></div>
   </div>
 
   <div class="card">
     <div class="card-header"><span class="card-title">Solicitudes recientes</span><a href="/Blue/admin/appointments.php" class="dash-link">Ver todas</a></div>
-    <div class="card-body--flush"><?= miniLista($recent) ?></div>
+    <div class="card-body--flush"><?= miniLista($recent, $colores) ?></div>
   </div>
 
 </div>

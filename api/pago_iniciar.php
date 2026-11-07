@@ -73,10 +73,11 @@ try {
     exit;
 }
 
-// La cita de valoración no tiene costo: se agenda por api/book.php, nunca con abono.
-if (reservaEsValoracion($db, $datos['services'])) {
+// La valoración (sin costo) y «Otro servicio» (lo cotiza el equipo) se agendan
+// por api/book.php, nunca con abono.
+if (reservaEsSinCosto($db, $datos)) {
     http_response_code(422);
-    echo json_encode(['error' => 'La cita de valoración no tiene costo: se agenda sin pagar. Recarga la página e intenta de nuevo.']);
+    echo json_encode(['error' => 'Esta reserva no se paga en línea: se agenda sin pagar. Recarga la página e intenta de nuevo.']);
     exit;
 }
 

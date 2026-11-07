@@ -64,9 +64,9 @@ if (in_array($fStatus, ['pending','confirmed','completed','cancelled'], true)) {
 $whereSql = 'WHERE ' . implode(' AND ', $where);
 
 $rows = $db->prepare("
-    SELECT a.id, a.date, a.time_start, a.time_end, a.status, a.notes, a.client_id, a.staff_id,
+    SELECT a.id, a.date, a.time_start, a.time_end, a.status, a.notes, a.client_id, a.staff_id, a.other_service,
            c.name AS client_name, c.phone AS client_phone,
-           GROUP_CONCAT(DISTINCT sv.name ORDER BY sv.name SEPARATOR ', ') AS services,
+           " . sqlServiciosDeCita() . " AS services,
            GROUP_CONCAT(DISTINCT aps.service_id) AS service_ids,
            COALESCE(SUM(sv.price),0) AS total_price
     FROM appointments a
@@ -127,6 +127,7 @@ require_once __DIR__ . '/_layout.php';
           'services' => array_map('intval', array_filter(explode(',', (string)$a['service_ids']))),
           'date' => $a['date'], 'time_start' => $a['time_start'],
           'status' => $a['status'], 'notes' => $a['notes'], 'staff_id' => $a['staff_id'],
+          'other_service' => $a['other_service'],
         ]; ?>
         <tr>
           <td><div class="client-cell"><div class="client-avatar"><?= mb_substr($a['client_name'],0,1) ?></div>
@@ -134,7 +135,7 @@ require_once __DIR__ . '/_layout.php';
           <td style="max-width:200px"><?= e($a['services'] ?? '—') ?></td>
           <td><div><?= date('d M Y', strtotime($a['date'])) ?></div><div style="color:var(--muted);font-size:12px"><?= date('g:i A', strtotime($a['time_start'])) ?></div></td>
           <td style="font-weight:600">
-            <?= formatPrice((float)$a['total_price']) ?>
+            <?= $a['other_service'] !== null ? 'Por cotizar' : formatPrice((float)$a['total_price']) ?>
             <?php $insignia = $a['status'] === 'cancelled' ? '' : insigniaPagoCita((float)$a['total_price'], (float)($pagadoPorCita[$a['id']] ?? 0)); // una cita cancelada no tiene saldo por cobrar ?>
             <?php if ($insignia): ?><div style="margin-top:5px;font-weight:500"><?= $insignia ?></div><?php endif; ?>
           </td>

@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/session.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/h-pagos.php';
 require_once __DIR__ . '/../includes/h-correo.php';
+require_once __DIR__ . '/../includes/h-colores.php';   // color de cada persona del equipo
 
 // Cabeceras de seguridad — página de credenciales/usuarios del panel.
 header('X-Frame-Options: DENY');
@@ -56,7 +57,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $phone = trim($_POST['phone'] ?? '');
                 $role  = in_array($_POST['role'] ?? '', ['admin','staff'], true) ? $_POST['role'] : 'staff';
                 $pass  = $_POST['password'] ?? '';
+                // Color con el que se reconoce en calendarios y agendas; sin elegir, se asigna uno libre de la paleta.
+                $colorElegido = normalizarColorProfesional($_POST['color'] ?? '');
                 if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) { setFlash('error', 'Nombre y correo válido son obligatorios.'); break; }
+                if (($_POST['color'] ?? '') !== '' && $colorElegido === null) { setFlash('error', 'El color no es válido. Elige uno del selector.'); break; }
 
                 if ($id > 0) {
                     if ($pass !== '') {
@@ -66,11 +70,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $db->prepare("UPDATE users SET name=?, email=?, phone=?, role=? WHERE id=?")
                            ->execute([$name, $email, $phone ?: null, $role, $id]);
                     }
+                    if ($colorElegido !== null) guardarColorProfesional($db, $id, $colorElegido);
                     setFlash('success', 'Usuario actualizado.');
                 } else {
                     if (strlen($pass) < 6) { setFlash('error', 'La contraseña debe tener al menos 6 caracteres.'); break; }
-                    $db->prepare("INSERT INTO users (name, email, password, role, phone) VALUES (?,?,?,?,?)")
-                       ->execute([$name, $email, password_hash($pass, PASSWORD_DEFAULT), $role, $phone ?: null]);
+                    $db->prepare("INSERT INTO users (name, email, password, role, phone, color) VALUES (?,?,?,?,?,?)")
+                       ->execute([$name, $email, password_hash($pass, PASSWORD_DEFAULT), $role, $phone ?: null,
+                                  $colorElegido ?? colorParaNuevoProfesional($db)]);
                     setFlash('success', 'Usuario creado.');
                 }
                 break;
@@ -126,6 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ── Datos ─────────────────────────────────────────────────
 $tab   = $_GET['tab'] ?? 'profile';
 $staff = $db->query("SELECT * FROM users ORDER BY role, name")->fetchAll();
+$colores = coloresProfesionales($db);   // asigna color a quien aún no tiene
 
 // Datos completos del perfil actual
 $prof = $db->prepare("SELECT * FROM users WHERE id=?");
@@ -350,7 +357,8 @@ if (!isset($sections[$tab])) { $tab = 'profile'; }
           <tr style="<?= $u['active'] ? '' : 'opacity:.55' ?>">
             <td>
               <div class="client-cell">
-                <div class="client-avatar"><?= mb_substr($u['name'], 0, 1) ?></div>
+                <?php $colorU = colorDeProfesional($colores, (int)$u['id']); ?>
+                <div class="client-avatar" style="background:<?= e($colorU) ?>;color:<?= e(colorTextoSobre($colorU)) ?>"><?= mb_substr($u['name'], 0, 1) ?></div>
                 <div>
                   <div class="client-name"><?= e($u['name']) ?><?= $u['id']==$me['id']?' <span class="pill pill-muted">tú</span>':'' ?></div>
                   <?php if ($u['phone']): ?><div class="client-phone"><?= e($u['phone']) ?></div><?php endif; ?>
@@ -362,7 +370,7 @@ if (!isset($sections[$tab])) { $tab = 'profile'; }
             <td><?= $u['active'] ? '<span class="badge badge-confirmed">Activo</span>' : '<span class="badge badge-cancelled">Inactivo</span>' ?></td>
             <td>
               <div class="action-btns">
-                <button class="btn-action" onclick='editStaff(<?= json_encode(["id"=>$u["id"],"name"=>$u["name"],"email"=>$u["email"],"phone"=>$u["phone"],"role"=>$u["role"]], JSON_HEX_APOS|JSON_HEX_QUOT) ?>)'>Editar</button>
+                <button class="btn-action" onclick='editStaff(<?= json_encode(["id"=>$u["id"],"name"=>$u["name"],"email"=>$u["email"],"phone"=>$u["phone"],"role"=>$u["role"],"color"=>$colorU], JSON_HEX_APOS|JSON_HEX_QUOT) ?>)'>Editar</button>
                 <?php if ($u['role'] === 'staff'): ?>
                   <a class="btn-action" href="/Blue/admin/agenda_personal.php?id=<?= (int)$u['id'] ?>">Agenda</a>
                 <?php endif; ?>
@@ -401,6 +409,18 @@ if (!isset($sections[$tab])) { $tab = 'profile'; }
               <select name="role" id="st_role" class="form-control"><option value="staff">Staff</option><option value="admin">Administrador</option></select>
             </div>
             <div class="form-field"><label>Contraseña</label><input type="password" name="password" id="st_pass" class="form-control"><div class="form-hint" id="st_passHint">Mínimo 6 caracteres.</div></div>
+            <div class="form-field full">
+              <label>Color en el calendario</label>
+              <div class="color-picker">
+                <input type="color" name="color" id="st_color" value="<?= e(PALETA_PROFESIONALES[0]) ?>" aria-label="Color de la persona">
+                <div class="color-swatches">
+                  <?php foreach (PALETA_PROFESIONALES as $c): ?>
+                    <button type="button" class="color-swatch" style="background:<?= e($c) ?>" data-color="<?= e($c) ?>" title="<?= e($c) ?>" aria-label="Usar el color <?= e($c) ?>"></button>
+                  <?php endforeach; ?>
+                </div>
+              </div>
+              <div class="form-hint">Con este color se reconoce a la persona en los calendarios, la lista de citas y la asignación.</div>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -423,6 +443,7 @@ if (!isset($sections[$tab])) { $tab = 'profile'; }
     document.getElementById('st_id').value = 0;
     ['st_name','st_email','st_phone','st_pass'].forEach(i => document.getElementById(i).value = '');
     document.getElementById('st_role').value = 'staff';
+    document.getElementById('st_color').value = <?= json_encode(colorParaNuevoProfesional($db)) ?>;   // uno libre de la paleta
     document.getElementById('st_pass').required = true;
     document.getElementById('st_passHint').textContent = 'Mínimo 6 caracteres.';
     openModal('staffModal');
@@ -434,6 +455,7 @@ if (!isset($sections[$tab])) { $tab = 'profile'; }
     document.getElementById('st_email').value = u.email;
     document.getElementById('st_phone').value = u.phone || '';
     document.getElementById('st_role').value = u.role;
+    document.getElementById('st_color').value = u.color;
     document.getElementById('st_pass').value = '';
     document.getElementById('st_pass').required = false;
     document.getElementById('st_passHint').textContent = 'Déjalo en blanco para no cambiarla.';
@@ -442,7 +464,18 @@ if (!isset($sections[$tab])) { $tab = 'profile'; }
   document.querySelectorAll('.modal-overlay').forEach(o => {
     o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
   });
+  // Los colores de la paleta rellenan el selector con un clic.
+  document.querySelectorAll('.color-swatch').forEach(b => b.addEventListener('click', () => {
+    document.getElementById('st_color').value = b.dataset.color;
+  }));
   </script>
+  <style>
+    .color-picker { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .color-picker input[type="color"] { width: 44px; height: 36px; padding: 2px; border: 1px solid var(--border); border-radius: 8px; background: #fff; cursor: pointer; }
+    .color-swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+    .color-swatch { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--border); cursor: pointer; transition: transform var(--t); }
+    .color-swatch:hover { transform: scale(1.15); }
+  </style>
 <?php endif; ?>
 
 <!-- ══════ PAGOS EN LÍNEA ══════ -->
