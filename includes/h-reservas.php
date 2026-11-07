@@ -8,6 +8,14 @@
 // Así la validación y el bloqueo del horario viven en un solo sitio.
 // ============================================================
 
+// Disponibilidad y asignación de profesional (agendas por profesional).
+require_once __DIR__ . '/h-agendas.php';
+// Duración de «Otro servicio» (config/negocio.php).
+require_once __DIR__ . '/h-negocio.php';
+
+// Largo máximo de la descripción de «Otro servicio» (= appointments.other_service).
+const OTRO_SERVICIO_MAX_CARACTERES = 300;
+
 /**
  * Normaliza y valida lo que llega del navegador.
  *
@@ -23,15 +31,22 @@ function validarDatosReserva(array $in): array {
         'phone'      => trim((string)($in['phone']      ?? '')),
         'email'      => trim((string)($in['email']      ?? '')),
         'note'       => trim((string)($in['note']       ?? '')),
+        // Servicio fuera del catálogo, con las palabras del cliente (espacios y saltos de línea colapsados).
+        'otro_servicio' => trim((string)preg_replace('/\s+/u', ' ', (string)($in['otro_servicio'] ?? ''))),
         'whatsapp'   => !empty($in['whatsapp']),
         'email_reminder' => !empty($in['email_reminder']),
+        // Profesional elegida en el wizard; 0 = «cualquiera disponible».
+        'staff_id'   => max(0, (int)($in['staff_id'] ?? 0)),
     ];
 
     // Se valida el formato y se sale ANTES de tocar DateTime: un valor que no
     // matchee el patrón hace que `new DateTime()` lance una excepción no
     // controlada (crash 500).
     $errores = [];
-    if (empty($d['services']))                                                $errores[] = 'Debes seleccionar al menos un servicio.';
+    if (empty($d['services']) && $d['otro_servicio'] === '')                  $errores[] = 'Debes seleccionar al menos un servicio o describir el que necesitas.';
+    // «Otro servicio» se agenda solo: el equipo primero lo cotiza, no se mezcla con servicios con precio.
+    if (!empty($d['services']) && $d['otro_servicio'] !== '')                 $errores[] = 'El «Otro servicio» se agenda solo, sin servicios del catálogo.';
+    if (mb_strlen($d['otro_servicio']) > OTRO_SERVICIO_MAX_CARACTERES)        $errores[] = 'Describe el servicio en máximo ' . OTRO_SERVICIO_MAX_CARACTERES . ' caracteres.';
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $d['date']))                      $errores[] = 'Fecha inválida.';
     if (!preg_match('/^\d{2}:\d{2}$/', $d['time_start']))                      $errores[] = 'Hora de inicio inválida.';
     if (!preg_match('/^\d{2}:\d{2}$/', $d['time_end']))                        $errores[] = 'Hora de fin inválida.';
@@ -50,13 +65,43 @@ function validarDatosReserva(array $in): array {
 }
 
 /**
+ * ¿La reserva es solo una cita de valoración?
+ *
+ * La valoración no tiene costo y se agenda sola, así que nunca pasa por la
+ * pasarela: api/book.php la deja entrar aunque el abono sea obligatorio y
+ * api/pago_iniciar.php no le abre checkout. Una valoración mezclada con otros
+ * servicios NO cuenta como valoración (esa reserva la rechaza crearReservaPendiente()).
+ */
+function reservaEsValoracion(PDO $db, array $serviceIds): bool {
+    $ids = array_values(array_unique(array_filter(array_map('intval', $serviceIds))));
+    if (count($ids) !== 1) return false;
+
+    $stmt = $db->prepare('SELECT is_assessment FROM services WHERE id = ? AND active = 1 LIMIT 1');
+    $stmt->execute([$ids[0]]);
+    return (int)$stmt->fetchColumn() === 1;
+}
+
+/**
+ * ¿La reserva no tiene nada que cobrar en línea?
+ *
+ * Es el caso de la valoración (sin costo) y de «Otro servicio» (el equipo lo
+ * cotiza): ninguna de las dos pasa por la pasarela, entran por api/book.php.
+ *
+ * @param array $datos resultado de validarDatosReserva()['datos']
+ */
+function reservaEsSinCosto(PDO $db, array $datos): bool {
+    if (($datos['otro_servicio'] ?? '') !== '') return true;
+    return reservaEsValoracion($db, $datos['services'] ?? []);
+}
+
+/**
  * Crea la cita en estado 'pending' junto con su cliente y sus servicios.
  *
  * El horario queda bloqueado apenas termina la transacción, así que este es
  * también el mecanismo que "aparta" el cupo mientras el cliente paga.
  *
  * @throws RuntimeException  errores que sí se le muestran al cliente (409/422)
- * @return array ['appointment_id','client_id','total_min','total_price']
+ * @return array ['appointment_id','client_id','total_min','total_price','es_valoracion','staff_id','time_end']
  */
 function crearReservaPendiente(PDO $db, array $d): array {
     // ── Mutex por fecha ────────────────────────────────────────
@@ -76,34 +121,51 @@ function crearReservaPendiente(PDO $db, array $d): array {
         // ── Verificar servicios y derivar duración/precio desde la BD ──
         // Ninguno de los dos se acepta del cliente: se calculan aquí para
         // que nadie pueda manipular ni la agenda ni el monto a pagar.
-        $marcadores = implode(',', array_fill(0, count($d['services']), '?'));
-        $svcCheck = $db->prepare(
-            "SELECT COUNT(*) AS cnt,
-                    COALESCE(SUM(duration_min), 60) AS total_min,
-                    COALESCE(SUM(price), 0)         AS total_price
-               FROM services WHERE id IN ($marcadores) AND active = 1"
-        );
-        $svcCheck->execute($d['services']);
-        $svcRow = $svcCheck->fetch();
+        $otroServicio = (string)($d['otro_servicio'] ?? '');
+        if ($otroServicio !== '') {
+            // «Otro servicio»: sin precio ni servicios del catálogo; ocupa el
+            // tiempo fijo de config/negocio.php hasta que el equipo lo cotice.
+            if (!empty($d['services'])) {
+                throw new RuntimeException('El «Otro servicio» se agenda solo, sin servicios del catálogo.');
+            }
+            $svcRow = ['cnt' => 0, 'total_min' => duracionOtroServicio(), 'total_price' => 0, 'valoraciones' => 0];
+        } else {
+            $marcadores = implode(',', array_fill(0, count($d['services']), '?'));
+            $svcCheck = $db->prepare(
+                "SELECT COUNT(*) AS cnt,
+                        COALESCE(SUM(duration_min), 60) AS total_min,
+                        COALESCE(SUM(price), 0)         AS total_price,
+                        COALESCE(SUM(is_assessment), 0) AS valoraciones
+                   FROM services WHERE id IN ($marcadores) AND active = 1"
+            );
+            $svcCheck->execute($d['services']);
+            $svcRow = $svcCheck->fetch();
 
-        if ((int)$svcRow['cnt'] !== count($d['services'])) {
-            throw new RuntimeException('Uno o más servicios no son válidos.');
+            if ((int)$svcRow['cnt'] !== count($d['services'])) {
+                throw new RuntimeException('Uno o más servicios no son válidos.');
+            }
         }
-        $totalMin   = max(30, (int)$svcRow['total_min']);
+
+        // La valoración va sola: primero se valora al cliente y después pide
+        // otra cita para su procedimiento. El wizard ya lo bloquea; esto es
+        // lo que impide saltárselo llamando a la API directamente.
+        $esValoracion = (int)$svcRow['valoraciones'] > 0;
+        if ($esValoracion && count($d['services']) > 1) {
+            throw new RuntimeException('La cita de valoración se agenda sola, sin otros servicios. Después de tu valoración podrás reservar el procedimiento.');
+        }
+        // Mínimo 30 min para los servicios del catálogo; «Otro servicio» usa el tiempo configurado.
+        $totalMin   = $otroServicio !== '' ? (int)$svcRow['total_min'] : max(30, (int)$svcRow['total_min']);
         $totalPrice = (float)$svcRow['total_price'];
 
-        // ── Verificar que el slot sigue libre ────────────────────
-        $conflicto = $db->prepare(
-            "SELECT COUNT(*) FROM appointments
-              WHERE date = ?
-                AND status IN ('pending','confirmed')
-                AND time_start < ?
-                AND time_end   > ?"
-        );
-        $conflicto->execute([$d['date'], $d['time_end'] . ':00', $d['time_start'] . ':00']);
-        if ((int)$conflicto->fetchColumn() > 0) {
-            throw new RuntimeException('El horario seleccionado ya no está disponible. Por favor elige otro.');
-        }
+        // La hora de fin sale de la duración real de los servicios, no del navegador.
+        $horaFin = date('H:i', strtotime($d['time_start']) + $totalMin * 60);
+
+        // ── Asignar profesional y verificar que el horario sigue libre ──
+        // Con agendas, cada profesional tiene su propio cupo y se respeta la
+        // elegida (o se asigna una si pidió «cualquiera»). Sin agendas (modo
+        // general) el centro tiene un solo cupo por horario, como antes.
+        $staffId = asignarProfesionalReserva($db, $d['services'], $d['date'], $d['time_start'], $totalMin, $d['staff_id']);
+        // Sin servicios, `$d['services']` va vacío y puede atender cualquier profesional con horario.
 
         // ── Crear o encontrar cliente (por teléfono) ─────────────
         $buscarCliente = $db->prepare('SELECT id FROM clients WHERE phone = ? LIMIT 1');
@@ -122,17 +184,19 @@ function crearReservaPendiente(PDO $db, array $d): array {
         // ── Crear la cita ─────────────────────────────────────────
         $db->prepare(
             "INSERT INTO appointments
-                (client_id, date, time_start, time_end, total_duration, status, whatsapp_reminder, email_reminder, notes)
-             VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?)"
+                (client_id, staff_id, date, time_start, time_end, total_duration, status, whatsapp_reminder, email_reminder, notes, other_service)
+             VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)"
         )->execute([
             $clientId,
+            $staffId,
             $d['date'],
             $d['time_start'] . ':00',
-            $d['time_end']   . ':00',
+            $horaFin . ':00',
             $totalMin,
             $d['whatsapp'] ? 1 : 0,
             $d['email_reminder'] ? 1 : 0,
             $d['note'] ?: null,
+            $otroServicio !== '' ? $otroServicio : null,
         ]);
         $apptId = (int)$db->lastInsertId();
 
@@ -151,6 +215,9 @@ function crearReservaPendiente(PDO $db, array $d): array {
             'client_id'      => (int)$clientId,
             'total_min'      => $totalMin,
             'total_price'    => $totalPrice,
+            'es_valoracion'  => $esValoracion,
+            'staff_id'       => $staffId,
+            'time_end'       => $horaFin,
         ];
 
     } catch (Exception $e) {
@@ -256,7 +323,23 @@ function serviciosDeCita(PDO $db, int $citaId): array {
           ORDER BY s.name'
     );
     $stmt->execute([$citaId]);
-    return $stmt->fetchAll();
+    $servicios = $stmt->fetchAll();
+
+    // «Otro servicio»: no está en el catálogo, así que se agrega como una fila
+    // más (marcada con `otro`, sin precio) para que cada vista lo muestre igual.
+    $otro = $db->prepare('SELECT other_service, total_duration FROM appointments WHERE id = ? LIMIT 1');
+    $otro->execute([$citaId]);
+    $fila = $otro->fetch();
+    if ($fila && (string)$fila['other_service'] !== '') {
+        $servicios[] = [
+            'id'           => 0,
+            'name'         => 'Otro servicio: ' . $fila['other_service'],
+            'price'        => 0,
+            'duration_min' => (int)$fila['total_duration'],
+            'otro'         => true,
+        ];
+    }
+    return $servicios;
 }
 
 /**

@@ -57,6 +57,14 @@ $returnQs  = $returnQs  ?? '';
             <div class="form-hint" id="cita_dur_hint">Duración total: 0 min</div>
           </div>
 
+          <div class="form-field full">
+            <label for="cita_otro">Otro servicio (fuera del catálogo)</label>
+            <textarea name="other_service" id="cita_otro" class="form-control" rows="2"
+                      maxlength="<?= OTRO_SERVICIO_MAX_CARACTERES ?>"
+                      placeholder="Solo si el servicio no está en la lista de arriba"></textarea>
+            <div class="form-hint">Va solo: al escribirlo se desmarcan los servicios del catálogo (ocupa <?= duracionOtroServicio() ?> min y queda por cotizar).</div>
+          </div>
+
           <div class="form-field">
             <label>Fecha</label>
             <input type="date" name="date" id="cita_date" class="form-control" required>
@@ -71,8 +79,9 @@ $returnQs  = $returnQs  ?? '';
             <label>Profesional</label>
             <select name="staff_id" id="cita_staff" class="form-control">
               <option value="">— Sin asignar —</option>
-              <?php foreach ($staffList as $st): ?>
-                <option value="<?= $st['id'] ?>"><?= e($st['name']) ?></option>
+              <?php $coloresModal = $colores ?? coloresProfesionales(getDB());
+              foreach ($staffList as $st): ?>
+                <option value="<?= $st['id'] ?>" style="color:<?= e(colorDeProfesional($coloresModal, (int)$st['id'])) ?>">● <?= e($st['name']) ?></option>
               <?php endforeach; ?>
             </select>
           </div>
@@ -117,12 +126,23 @@ function toggleNuevoCliente(){
   document.getElementById('cita_nc_phone_wrap').style.display = es0 ? '' : 'none';
 }
 
+const OTRO_MIN = <?= duracionOtroServicio() ?>;
+
 function actualizarDuracion(){
   let total = 0;
   document.querySelectorAll('#citaModal input[name="services[]"]:checked').forEach(c => total += parseInt(c.dataset.dur || 0));
+  if (!total && document.getElementById('cita_otro').value.trim() !== '') total = OTRO_MIN;
   document.getElementById('cita_dur_hint').textContent = 'Duración total: ' + total + ' min';
 }
-document.querySelectorAll('#citaModal input[name="services[]"]').forEach(c => c.addEventListener('change', actualizarDuracion));
+// «Otro servicio» y el catálogo se excluyen entre sí (igual que en la reserva en línea).
+document.querySelectorAll('#citaModal input[name="services[]"]').forEach(c => c.addEventListener('change', () => {
+  if (c.checked) document.getElementById('cita_otro').value = '';
+  actualizarDuracion();
+}));
+document.getElementById('cita_otro').addEventListener('input', function () {
+  if (this.value.trim() !== '') document.querySelectorAll('#citaModal input[name="services[]"]').forEach(c => c.checked = false);
+  actualizarDuracion();
+});
 
 function resetCita(){
   document.getElementById('cita_id').value = 0;
@@ -130,6 +150,7 @@ function resetCita(){
   document.getElementById('cita_nc_name').value = '';
   document.getElementById('cita_nc_phone').value = '';
   document.querySelectorAll('#citaModal input[name="services[]"]').forEach(c => c.checked = false);
+  document.getElementById('cita_otro').value = '';
   document.getElementById('cita_date').value = '';
   document.getElementById('cita_time').value = '';
   document.getElementById('cita_status').value = 'pending';
@@ -154,6 +175,7 @@ function openEditarCita(d){
     const cb = document.querySelector('#citaModal input[name="services[]"][value="'+sid+'"]');
     if (cb) cb.checked = true;
   });
+  document.getElementById('cita_otro').value = d.other_service || '';
   document.getElementById('cita_date').value = d.date;
   document.getElementById('cita_time').value = (d.time_start || '').substring(0,5);
   document.getElementById('cita_status').value = d.status;

@@ -38,6 +38,7 @@ $citasMes = citasDelMes($db, $staffFilter, $year, $month);
 
 $mesesEs   = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 $staffList = obtenerStaffActivo($db);
+$colores   = coloresProfesionales($db);   // color de cada profesional (chips y leyenda)
 $clientes  = obtenerClientes($db);
 $servicios = obtenerServiciosActivos($db);
 $returnQs  = http_build_query(array_filter(['ym' => $ym, 'staff' => $staffFilter]));
@@ -58,7 +59,7 @@ require_once __DIR__ . '/../includes/admin_layout.php';
       <select name="staff" class="filter-select" onchange="this.form.submit()">
         <option value="">Todos los profesionales</option>
         <?php foreach ($staffList as $st): ?>
-          <option value="<?= $st['id'] ?>" <?= $staffFilter === (int)$st['id'] ? 'selected' : '' ?>><?= e($st['name']) ?></option>
+          <option value="<?= $st['id'] ?>" style="color:<?= e(colorDeProfesional($colores, (int)$st['id'])) ?>" <?= $staffFilter === (int)$st['id'] ? 'selected' : '' ?>>● <?= e($st['name']) ?></option>
         <?php endforeach; ?>
       </select>
     </form>
@@ -90,13 +91,16 @@ require_once __DIR__ . '/../includes/admin_layout.php';
           <button class="cal-add" title="Nueva cita" onclick="openNuevaCita('<?= $fecha ?>')">+</button>
         </div>
         <div class="cal-chips">
-          <?php foreach ($delDia as $c): ?>
+          <?php foreach ($delDia as $c):
+            $colorCita = colorDeProfesional($colores, $c['staff_id'] ? (int)$c['staff_id'] : null); ?>
             <div class="cal-chip cal-<?= e($c['status']) ?>"
+                 style="--staff:<?= e($colorCita) ?>;--staff-bg:<?= e(fondoSuaveProfesional($colorCita)) ?>"
                  title="<?= e(date('g:i A', strtotime($c['time_start'])) . ' · ' . $c['client_name']
                           . ($c['staff_name'] ? ' · ' . $c['staff_name'] : ' · Sin asignar')
                           . ' · ' . ($c['services'] ?? '')) ?>">
               <span class="cal-chip-time"><?= date('g:i', strtotime($c['time_start'])) ?></span>
               <span class="cal-chip-name"><?= e($c['client_name']) ?></span>
+              <i class="cal-chip-estado cal-<?= e($c['status']) ?>"></i>
             </div>
           <?php endforeach; ?>
         </div>
@@ -109,6 +113,13 @@ require_once __DIR__ . '/../includes/admin_layout.php';
     <span><i class="cal-dot cal-confirmed"></i> Confirmada</span>
     <span><i class="cal-dot cal-completed"></i> Completada</span>
     <span><i class="cal-dot cal-cancelled"></i> Cancelada</span>
+  </div>
+  <div class="cal-legend cal-legend-equipo">
+    <span class="cal-legend-titulo">Profesionales</span>
+    <?php foreach ($staffList as $st): ?>
+      <span><?= puntoColorProfesional(colorDeProfesional($colores, (int)$st['id'])) ?> <?= e($st['name']) ?></span>
+    <?php endforeach; ?>
+    <span><?= puntoColorProfesional(COLOR_SIN_ASIGNAR) ?> Sin asignar</span>
   </div>
 </div></div>
 

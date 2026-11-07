@@ -27,10 +27,11 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/h-reservas.php';
 require_once __DIR__ . '/../includes/h-pagos.php';
+require_once __DIR__ . '/../includes/h-agenda.php';
 
 // ── Utilidades de la suite ────────────────────────────────
 $resultado = ['ok' => 0, 'falla' => 0, 'omitida' => 0];
-$creado    = ['citas' => [], 'telefonos' => []];
+$creado    = ['citas' => [], 'telefonos' => [], 'servicios' => []];
 
 function seccion(string $titulo): void {
     echo "\n\033[1m" . $titulo . "\033[0m\n" . str_repeat('─', 60) . "\n";
@@ -58,20 +59,20 @@ function telefonoDePrueba(): string {
     return $tel;
 }
 
-/** Busca un horario libre lejos en el futuro, para no interferir con la agenda real. */
-function horarioLibre(PDO $db, int $duracion, int $desdeDias = 30): array {
-    $choque = $db->prepare(
-        "SELECT COUNT(*) FROM appointments WHERE date = ? AND status IN ('pending','confirmed')
-            AND time_start < ? AND time_end > ?"
-    );
+/**
+ * Busca un horario libre lejos en el futuro, para no interferir con la agenda real.
+ * Usa la misma regla que la reserva (h-agendas.php): con agendas por profesional,
+ * «libre» depende del horario de cada una y de los servicios que realiza.
+ */
+function horarioLibre(PDO $db, int $duracion, int $desdeDias = 30, array $servicios = []): array {
     for ($d = $desdeDias; $d < $desdeDias + 60; $d++) {
         $fecha = date('Y-m-d', strtotime("+{$d} days"));
-        if (date('N', strtotime($fecha)) == 7) continue;
-        for ($h = 8; ($h * 60 + $duracion) <= 19 * 60; $h++) {
-            $ini = sprintf('%02d:00', $h);
-            $fin = date('H:i', strtotime($ini) + $duracion * 60);
-            $choque->execute([$fecha, $fin . ':00', $ini . ':00']);
-            if ((int)$choque->fetchColumn() === 0) return [$fecha, $ini, $fin];
+        $ctx   = contextoAgenda($db, $fecha, $fecha, $servicios);
+        for ($h = 6; ($h * 60 + $duracion) <= 22 * 60; $h++) {
+            if (evaluarHorario($ctx, $fecha, $h * 60, $duracion)['estado'] === 'libre') {
+                $ini = sprintf('%02d:00', $h);
+                return [$fecha, $ini, date('H:i', strtotime($ini) + $duracion * 60)];
+            }
         }
     }
     throw new RuntimeException('No se encontró un horario libre para las pruebas.');
@@ -80,7 +81,7 @@ function horarioLibre(PDO $db, int $duracion, int $desdeDias = 30): array {
 /** Crea una reserva pendiente con los mismos pasos que api/pago_iniciar.php. */
 function reservaDePrueba(PDO $db, array $servicio, int $desdeDias, string $venceEn = '+20 minutes'): array {
     global $creado;
-    [$fecha, $ini, $fin] = horarioLibre($db, max(30, (int)$servicio['duration_min']), $desdeDias);
+    [$fecha, $ini, $fin] = horarioLibre($db, max(30, (int)$servicio['duration_min']), $desdeDias, [(int)$servicio['id']]);
     $v = validarDatosReserva([
         'services' => [(int)$servicio['id']], 'date' => $fecha, 'time_start' => $ini, 'time_end' => $fin,
         'name' => 'Prueba Automática Wompi', 'phone' => telefonoDePrueba(), 'email' => 'pruebas@blue.test',
@@ -151,6 +152,10 @@ function limpiar(): void {
         foreach (array_unique($creado['citas']) as $id) {
             $db->prepare('DELETE FROM finances WHERE appointment_id = ?')->execute([$id]);
             $db->prepare('DELETE FROM appointments WHERE id = ?')->execute([$id]);
+        }
+        // Los servicios van después de las citas: appointment_services los referencia.
+        foreach (array_unique($creado['servicios']) as $id) {
+            $db->prepare('DELETE FROM services WHERE id = ?')->execute([$id]);
         }
         foreach (array_unique($creado['telefonos']) as $tel) {
             $db->prepare('DELETE FROM clients WHERE phone = ?')->execute([$tel]);
@@ -337,6 +342,28 @@ if (!$servicio) {
             estadoCita($db, $rv['appointment_id']) === 'cancelled'
             && buscarPagoPorReferencia($db, $rv['reference'])['status'] === 'expired');
 
+        // ── Cita completada sin abono ──
+        // Al completarla, Agenda registra el total en Finanzas (registrarIngresoCita).
+        // Ese dinero ya entró: la vista de la cita no debe dejar registrarlo otra vez.
+        if (!$actor) {
+            omitir('Ingreso al completar cuenta como pagado', 'no hay usuarios activos para registrarlo');
+        } else {
+            $rc = reservaDePrueba($db, $servicio, 55);
+            $db->prepare("UPDATE payments SET status = 'expired' WHERE id = ?")->execute([$rc['pago']['id']]);
+            $db->prepare("UPDATE appointments SET status = 'completed' WHERE id = ?")->execute([$rc['appointment_id']]);
+            registrarIngresoCita($db, $rc['appointment_id'], $actor);
+
+            $totalRc   = (float)$rc['total_price'];
+            $resumenRc = resumenPagosCita($db, $rc['appointment_id'], $totalRc);
+            comprobar('El ingreso registrado al completar cuenta como pagado',
+                $resumenRc['esta_saldada'], 'pendiente ' . formatPrice($resumenRc['pendiente']));
+
+            $doble = registrarPagoSaldo($db, $rc['appointment_id'], $totalRc,
+                ['monto' => $totalRc, 'medio' => 'Efectivo', 'recibido_por' => $actor], $actor);
+            comprobar('No deja registrar dos veces el dinero de una cita completada',
+                !$doble['ok'] && ingresosDeCita($db, $rc['appointment_id']) === 1);
+        }
+
     } catch (Throwable $e) {
         comprobar('Flujo en la base sin errores inesperados', false, $e->getMessage());
     }
@@ -443,6 +470,104 @@ if ($codigo === 0) {
 
     [$codigo] = http("{$base}/tests/pagos_wompi.php");
     comprobar('La carpeta tests/ no es accesible desde el navegador', $codigo === 404, "HTTP {$codigo}");
+}
+
+// ══════════════════════════════════════════════════════════
+seccion('6. Cita de valoración (sin costo)');
+// ══════════════════════════════════════════════════════════
+// La valoración no tiene costo, nunca pasa por Wompi y se agenda sola:
+// primero se valora al cliente y después pide otra cita para su procedimiento.
+$categoria = (int)$db->query('SELECT id FROM categories ORDER BY id LIMIT 1')->fetchColumn();
+
+if (!$servicio || !$categoria || !$actor) {
+    omitir('Cita de valoración', 'faltan servicios con precio, categorías o usuarios activos');
+} else {
+    try {
+        $db->prepare(
+            "INSERT INTO services (category_id, name, duration_min, price, active, is_assessment)
+             VALUES (?, 'Valoración (prueba automática)', 30, 0, 1, 1)"
+        )->execute([$categoria]);
+        $valoracionId = (int)$db->lastInsertId();
+        $creado['servicios'][] = $valoracionId;
+
+        /** Datos de reserva ya validados, en un horario libre. */
+        $datosDePrueba = function (array $ids, int $duracion, int $desdeDias) use ($db): array {
+            [$fecha, $ini, $fin] = horarioLibre($db, $duracion, $desdeDias);
+            return validarDatosReserva([
+                'services' => $ids, 'date' => $fecha, 'time_start' => $ini, 'time_end' => $fin,
+                'name' => 'Prueba Valoración', 'phone' => telefonoDePrueba(), 'email' => '', 'note' => '', 'whatsapp' => false,
+            ])['datos'];
+        };
+
+        // ── Reglas ──
+        comprobar('Un total de $0 no genera abono', calcularAbonoReserva(0) == 0.0,
+            formatPrice(calcularAbonoReserva(0)));
+        comprobar('La valoración sola se reconoce como valoración', reservaEsValoracion($db, [$valoracionId]));
+        comprobar('Un servicio normal no es valoración', !reservaEsValoracion($db, [(int)$servicio['id']]));
+        comprobar('Valoración junto a otro servicio no cuenta como valoración',
+            !reservaEsValoracion($db, [$valoracionId, (int)$servicio['id']]));
+
+        // ── Reserva del sitio público ──
+        $sola = crearReservaPendiente($db, $datosDePrueba([$valoracionId], 30, 62));
+        $creado['citas'][] = $sola['appointment_id'];
+        comprobar('La valoración sola se agenda con total $0',
+            $sola['total_price'] == 0.0 && estadoCita($db, $sola['appointment_id']) === 'pending');
+
+        try {
+            $mixta = crearReservaPendiente($db, $datosDePrueba(
+                [$valoracionId, (int)$servicio['id']], 30 + (int)$servicio['duration_min'], 64));
+            $creado['citas'][] = $mixta['appointment_id'];
+            comprobar('No deja agendar la valoración junto con otro servicio', false, 'la reserva mixta se creó');
+        } catch (RuntimeException $e) {
+            comprobar('No deja agendar la valoración junto con otro servicio',
+                str_contains($e->getMessage(), 'valoración'), $e->getMessage());
+        }
+
+        // ── Cita creada desde el panel (admin o profesional) ──
+        $clientesAntes = (int)$db->query('SELECT COUNT(*) FROM clients')->fetchColumn();
+        $panel = guardarCita($db, [
+            'services' => [$valoracionId, (int)$servicio['id']], 'date' => date('Y-m-d', strtotime('+66 days')),
+            'time_start' => '10:00', 'new_client_name' => 'Prueba Valoración', 'new_client_phone' => telefonoDePrueba(),
+        ], null, $actor);
+        comprobar('Desde el panel tampoco se mezcla la valoración con otro servicio', !$panel['ok'], $panel['msg']);
+        comprobar('El rechazo del panel no deja clientes a medio crear',
+            (int)$db->query('SELECT COUNT(*) FROM clients')->fetchColumn() === $clientesAntes);
+
+        // ── Por HTTP ──
+        $cookiesV = tempnam(sys_get_temp_dir(), 'blue');
+        [$codigoV, $htmlV] = http("{$base}/booking.php", ['cookies' => $cookiesV]);
+        if ($codigoV !== 200) {
+            omitir('Valoración por HTTP', "booking.php respondió HTTP {$codigoV}");
+        } else {
+            preg_match('/name="csrf-token" content="([^"]+)"/', $htmlV, $mv);
+            $cabV = ['Content-Type: application/json', 'X-CSRF-Token: ' . ($mv[1] ?? '')];
+            comprobar('El wizard marca la valoración para bloquear los demás servicios',
+                (bool)preg_match('/data-id="' . $valoracionId . '"[^>]*data-valoracion="1"/s', $htmlV));
+
+            [$fechaV, $iniV, $finV] = horarioLibre($db, 30, 68);
+            $cuerpoV = json_encode(['services' => [$valoracionId], 'date' => $fechaV, 'time_start' => $iniV, 'time_end' => $finV,
+                'name' => 'Prueba HTTP valoración', 'phone' => telefonoDePrueba(), 'email' => '', 'note' => '', 'whatsapp' => false]);
+
+            if (pagosEnLineaActivos() && !pagosEnModoDemo()) {
+                [$codigoP, $respP] = http("{$base}/api/pago_iniciar.php", ['cookies' => $cookiesV, 'cabeceras' => $cabV, 'cuerpo' => $cuerpoV]);
+                $datosP = json_decode($respP, true) ?: [];
+                if (!empty($datosP['appointment_id'])) $creado['citas'][] = (int)$datosP['appointment_id'];
+                comprobar('La pasarela nunca le abre checkout a la valoración',
+                    $codigoP === 422 && empty($datosP['checkout_url']), "HTTP {$codigoP}");
+            } else {
+                omitir('La pasarela nunca le abre checkout a la valoración', 'la pasarela no está activa con llaves');
+            }
+
+            [$codigoB, $respB] = http("{$base}/api/book.php", ['cookies' => $cookiesV, 'cabeceras' => $cabV, 'cuerpo' => $cuerpoV]);
+            $datosB = json_decode($respB, true) ?: [];
+            if (!empty($datosB['appointment_id'])) $creado['citas'][] = (int)$datosB['appointment_id'];
+            comprobar('La valoración se agenda sin pagar' . (abonoEsObligatorio() ? ', aunque el abono sea obligatorio' : ''),
+                $codigoB === 200 && !empty($datosB['success']), "HTTP {$codigoB}");
+        }
+
+    } catch (Throwable $e) {
+        comprobar('Cita de valoración sin errores inesperados', false, $e->getMessage());
+    }
 }
 
 // ══════════════════════════════════════════════════════════

@@ -88,19 +88,20 @@ function capturarCorreosNuevos(callable $accion): array {
     return $nuevos;
 }
 
-function horarioLibre(PDO $db, int $duracion, int $desdeDias = 60): array {
-    $choque = $db->prepare(
-        "SELECT COUNT(*) FROM appointments WHERE date = ? AND status IN ('pending','confirmed')
-            AND time_start < ? AND time_end > ?"
-    );
+/**
+ * Busca un horario libre lejos en el futuro.
+ * Usa la misma regla que la reserva (h-agendas.php): con agendas por profesional,
+ * «libre» depende del horario de cada una, no de un horario fijo del centro.
+ */
+function horarioLibre(PDO $db, int $duracion, int $desdeDias = 60, array $servicios = []): array {
     for ($d = $desdeDias; $d < $desdeDias + 90; $d++) {
         $fecha = date('Y-m-d', strtotime("+{$d} days"));
-        if (date('N', strtotime($fecha)) == 7) continue;
-        for ($h = 8; ($h * 60 + $duracion) <= 19 * 60; $h++) {
-            $ini = sprintf('%02d:00', $h);
-            $fin = date('H:i', strtotime($ini) + $duracion * 60);
-            $choque->execute([$fecha, $fin . ':00', $ini . ':00']);
-            if ((int)$choque->fetchColumn() === 0) return [$fecha, $ini, $fin];
+        $ctx   = contextoAgenda($db, $fecha, $fecha, $servicios);
+        for ($h = 6; ($h * 60 + $duracion) <= 22 * 60; $h++) {
+            if (evaluarHorario($ctx, $fecha, $h * 60, $duracion)['estado'] === 'libre') {
+                $ini = sprintf('%02d:00', $h);
+                return [$fecha, $ini, date('H:i', strtotime($ini) + $duracion * 60)];
+            }
         }
     }
     throw new RuntimeException('No se encontró un horario libre para las pruebas.');

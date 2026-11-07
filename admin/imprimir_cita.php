@@ -11,7 +11,7 @@ $id = (int)($_GET['id'] ?? 0);
 $stmt = $db->prepare("
     SELECT a.*, c.name AS client_name, c.phone AS client_phone, c.email AS client_email,
            u.name AS staff_name,
-           GROUP_CONCAT(DISTINCT sv.name ORDER BY sv.name SEPARATOR ', ') AS services,
+           " . sqlServiciosDeCita() . " AS services,
            COALESCE(SUM(sv.price),0) AS total_price
     FROM appointments a
     JOIN clients c ON a.client_id = c.id

@@ -141,3 +141,33 @@ CREATE TABLE IF NOT EXISTS `appointment_links` (
 ALTER TABLE `appointments`
     ADD COLUMN IF NOT EXISTS `email_reminder` TINYINT(1) NOT NULL DEFAULT 0
         COMMENT '1 = el cliente pidió que le avisemos por correo' AFTER `whatsapp_reminder`;
+
+-- ============================================================
+-- Devolución del abono al cancelar (tarea 6)
+-- ------------------------------------------------------------
+-- Política: si la cita se cancela con la anticipación mínima
+-- (config/negocio.php → horas_minimas_cancelacion), el abono pagado
+-- queda "por devolver"; si se cancela tarde, el centro lo conserva.
+-- La devolución se hace a mano en el panel de Wompi y el equipo la
+-- registra en la vista de la cita (crea el egreso en Finanzas).
+--   refund_status: none = no aplica · pending = por devolver · done = devuelto
+-- ============================================================
+ALTER TABLE `payments`
+    ADD COLUMN IF NOT EXISTS `refund_status` ENUM('none','pending','done') NOT NULL DEFAULT 'none'
+        COMMENT 'Devolución del abono: none · pending (por devolver) · done (devuelto)' AFTER `note`;
+
+ALTER TABLE `payments`
+    ADD COLUMN IF NOT EXISTS `refund_requested_at` DATETIME NULL AFTER `refund_status`;
+
+ALTER TABLE `payments`
+    ADD COLUMN IF NOT EXISTS `refunded_at` DATETIME NULL AFTER `refund_requested_at`;
+
+ALTER TABLE `payments`
+    ADD COLUMN IF NOT EXISTS `refunded_by` INT UNSIGNED NULL
+        COMMENT 'Persona del equipo que registró la devolución' AFTER `refunded_at`;
+
+ALTER TABLE `payments`
+    ADD CONSTRAINT `fk_payments_refunded_by`
+        FOREIGN KEY IF NOT EXISTS (`refunded_by`) REFERENCES `users`(`id`) ON DELETE SET NULL;
+
+ALTER TABLE `payments` ADD INDEX IF NOT EXISTS `idx_payments_refund` (`refund_status`);

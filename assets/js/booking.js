@@ -7,10 +7,16 @@
 
 'use strict';
 
+// ── Íconos (reemplazan emojis; mismo trazo que los del resto del aplicativo) ──
+const svgIcono = (trazos, px) =>
+  `<svg width="${px}" height="${px}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ` +
+  `stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${trazos}</svg>`;
+const ICO_CALENDARIO = svgIcono('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>', 18);
+const ICO_RELOJ_CHICO = svgIcono('<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>', 14);
+
 // ── Constants ──────────────────────────────────────────────
-const SLOT_MIN   = 60;
-const HOUR_START = 8;
-const HOUR_END   = 19;
+// Los horarios (grilla, días abiertos y cupos) los calcula el servidor según
+// la agenda de cada profesional: ver api/availability.php e includes/h-agendas.php.
 const DAY_NAMES  = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 const MONTH_NAMES = ['enero','febrero','marzo','abril','mayo','junio',
                      'julio','agosto','septiembre','octubre','noviembre','diciembre'];
@@ -24,20 +30,27 @@ const PAGOS = Object.assign(
   window.BLUE_PAGOS || {}
 );
 
+// ── Otro servicio ──────────────────────────────────────────
+// Servicio fuera del catálogo: el cliente lo describe y el equipo lo cotiza.
+// Lo inyecta booking.php desde config/negocio.php (minutos que ocupa en la agenda).
+const OTRO = Object.assign({ minutos: 30 }, window.BLUE_OTRO || {});
+
 // ── Booking state ──────────────────────────────────────────
 const booking = {
   step: 1,
   services: [],          // [{id, name, duration, price}]
+  otroActivo: false,     // marcó «Otro servicio» (excluye a los del catálogo)
+  otroTexto: '',         // lo que escribió el cliente
   totalDuration: 0,
   date: null,            // "YYYY-MM-DD"
   timeStart: null,       // "HH:MM"
   timeEnd: null,         // "HH:MM"
+  staffId: 0,            // profesional elegida; 0 = «cualquiera disponible»
   name: '', phone: '', email: '', note: '', whatsapp: true, emailReminder: false
 };
 
-let busySlots  = [];         // [{date, time_start, time_end}]
-let busyMap    = new Map();  // Map<date, [{s, e}]> — indexed after each fetch
-let cachedWeek = null;       // ISO date of last fetched week_start
+let disponibilidad      = null; // última respuesta de api/availability.php
+let cacheDisponibilidad = '';   // semana|servicios|profesional de esa respuesta
 let currentWeekStart = getMonday(new Date());
 
 // ── Date helpers ───────────────────────────────────────────
@@ -109,9 +122,11 @@ function totalServicios() {
 }
 
 // ── Time slot list ─────────────────────────────────────────
+// Filas de la grilla: de la primera a la última hora de trabajo que envía el servidor.
 function timeSlots() {
+  const g = disponibilidad?.grilla || { desde: '08:00', hasta: '19:00', paso: 60 };
   const slots = [];
-  for (let m = HOUR_START * 60; m < HOUR_END * 60; m += SLOT_MIN) {
+  for (let m = toMin(g.desde); m < toMin(g.hasta); m += g.paso) {
     slots.push(fromMin(m));
   }
   return slots;
@@ -119,31 +134,19 @@ function timeSlots() {
 
 // ── Availability helpers ───────────────────────────────────
 
-// Build date-keyed map for O(1) per-date lookup instead of O(n) full scan.
-function indexBusySlots() {
-  busyMap = new Map();
-  for (const b of busySlots) {
-    if (!busyMap.has(b.date)) busyMap.set(b.date, []);
-    busyMap.get(b.date).push({ s: toMin(b.time_start), e: toMin(b.time_end) });
-  }
+// Estado de un horario según el servidor: libre · ocupado · no_cabe · fuera · pasado.
+function estadoHorario(date, time) {
+  return disponibilidad?.dias?.[date]?.horas?.[time] || { estado: 'fuera', profesionales: [] };
 }
 
-function isBusy(date, time) {
-  const t = toMin(time);
-  return (busyMap.get(date) || []).some(b => t >= b.s && t < b.e);
+function nombreDeProfesional(id) {
+  return (disponibilidad?.profesionales || []).find(p => p.id === id)?.nombre || '';
 }
 
-function slotFits(date, time) {
-  const now    = new Date();
-  const dt     = new Date(date + 'T' + time + ':00');
-  if (dt <= now) return false;
-
-  const dur    = booking.totalDuration || 60;
-  const tStart = toMin(time);
-  const tEnd   = tStart + dur;
-  if (tEnd > HOUR_END * 60) return false;
-
-  return !(busyMap.get(date) || []).some(b => !(tEnd <= b.s || tStart >= b.e));
+// "con Laura Gómez" o, si eligió «cualquiera», "con quien esté disponible".
+function textoProfesional() {
+  if (disponibilidad?.modo !== 'agendas') return '';
+  return booking.staffId ? `con ${nombreDeProfesional(booking.staffId)}` : 'con quien esté disponible';
 }
 
 function inSelectedBlock(time) {
@@ -188,18 +191,16 @@ function renderCalendar() {
     html += `<tr><td class="td-time">${fmtTime(time)}</td>`;
 
     days.forEach(d => {
-      const iso      = toISO(d);
-      const isSunday = d.getDay() === 0;
+      const iso = toISO(d);
 
-      // Domingo = siempre cerrado
-      if (isSunday) {
+      // Día en que nadie (o la profesional elegida) atiende
+      if (!disponibilidad?.dias?.[iso]?.abierto) {
         html += `<td class="td-cell"><div class="cell-box closed">Cerrado</div></td>`;
         return;
       }
 
-      const busy  = isBusy(iso, time);
-      const fits  = slotFits(iso, time);
-      const inSel = inSelectedBlock(time) && booking.date === iso;
+      const estado = estadoHorario(iso, time).estado;
+      const inSel  = inSelectedBlock(time) && booking.date === iso;
 
       if (inSel) {
         const isFirst = toMin(time) === toMin(booking.timeStart);
@@ -208,14 +209,17 @@ function renderCalendar() {
             ${isFirst ? fmtTime(time) : ''}
           </div></td>`;
 
-      } else if (busy) {
+      } else if (estado === 'ocupado') {
         html += `<td class="td-cell"><div class="cell-box busy">Ocupado</div></td>`;
 
       } else {
         const dt = new Date(iso + 'T' + time + ':00');
-        if (dt <= new Date()) {
+        if (estado === 'pasado' || dt <= new Date()) {
           html += `<td class="td-cell"><div class="cell-box past"></div></td>`;
-        } else if (!fits) {
+        } else if (estado === 'fuera') {
+          // Hora en que nadie atiende (antes de abrir, almuerzo o después de cerrar).
+          html += `<td class="td-cell"><div class="cell-box closed"></div></td>`;
+        } else if (estado !== 'libre') {
           html += `<td class="td-cell"><div class="cell-box no-fit"></div></td>`;
         } else {
           html += `<td class="td-cell">
@@ -246,7 +250,7 @@ function selectSlot(date, time) {
 }
 
 function previewSlot(date, time) {
-  if (!slotFits(date, time)) return;
+  if (estadoHorario(date, time).estado !== 'libre') return;
   const dur    = booking.totalDuration || 60;
   const tStart = toMin(time);
   document.querySelectorAll('.cell-box.available[data-date]').forEach(cell => {
@@ -264,18 +268,25 @@ function updateSlotBanner() {
   const banner = document.getElementById('slot-banner');
   const text   = document.getElementById('slot-banner-text');
   if (booking.date && booking.timeStart) {
-    text.textContent = `${fmtDate(booking.date)} · ${fmtTime(booking.timeStart)} – ${fmtTime(booking.timeEnd)}`;
+    const quien = textoProfesional();
+    text.textContent = `${fmtDate(booking.date)} · ${fmtTime(booking.timeStart)} – ${fmtTime(booking.timeEnd)}`
+      + (quien ? ` · ${quien}` : '');
     banner.classList.add('visible');
   } else {
     banner.classList.remove('visible');
   }
 }
 
-// Fetch busy slots from API (cached per week to avoid redundant fetches on back/forward).
+// Pide la disponibilidad de la semana para los servicios y la profesional elegidos
+// (en cache mientras no cambie nada, para no repetir la consulta al ir y volver).
 async function loadAvailability() {
-  const weekKey = toISO(currentWeekStart);
+  const semana    = toISO(currentWeekStart);
+  const servicios = booking.services.map(s => s.id).join(',');
+  const otro      = esOtroServicio() ? 1 : 0;
+  const clave     = `${semana}|${servicios}|${booking.staffId}|${otro}`;
 
-  if (weekKey === cachedWeek) {
+  if (clave === cacheDisponibilidad && disponibilidad) {
+    renderStaffPicker();
     renderCalendar();
     return;
   }
@@ -283,16 +294,69 @@ async function loadAvailability() {
   document.getElementById('cal-container').innerHTML =
     '<div class="cal-loading"><div class="spinner"></div>Cargando disponibilidad…</div>';
   try {
-    const res  = await fetch(`/Blue/api/availability.php?week_start=${weekKey}`);
+    const res  = await fetch(`/Blue/api/availability.php?week_start=${semana}&services=${servicios}&staff_id=${booking.staffId}&otro=${otro}`);
     const data = await res.json();
-    busySlots  = data.occupied || [];
-    cachedWeek = weekKey;
-    indexBusySlots();
+    if (!res.ok || !data.dias) throw new Error(data.error || 'Respuesta inválida');
+
+    disponibilidad = data;
+    // Si la profesional elegida no realiza estos servicios, el servidor vuelve a «cualquiera».
+    booking.staffId     = data.staff_id || 0;
+    cacheDisponibilidad = `${semana}|${servicios}|${booking.staffId}|${otro}`;
+    renderStaffPicker();
     renderCalendar();
+    updateSidebar();
   } catch (e) {
     document.getElementById('cal-container').innerHTML =
       '<div class="cal-loading" style="color:#ef4444">Error al cargar disponibilidad. Recarga la página.</div>';
   }
+}
+
+// ── Elegir profesional ─────────────────────────────────────
+// Solo con agendas por profesional: «Cualquiera disponible» + cada una que
+// realiza los servicios elegidos. En modo general no se muestra.
+const ICONO_CUALQUIERA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>';
+
+// `color`/`texto`: el color de la profesional y el de las iniciales encima (del servidor, validados como #rrggbb).
+function opcionProfesional(id, nombre, avatar, color = '', texto = '') {
+  const activa = booking.staffId === id;
+  const estilo = /^#[0-9a-f]{6}$/i.test(color) && /^#[0-9a-f]{6}$/i.test(texto)
+    ? ` style="background:${color};color:${texto}"` : '';
+  return `<button type="button" class="staff-chip${activa ? ' active' : ''}" aria-pressed="${activa}" onclick="elegirProfesional(${id})">`
+    + `<span class="staff-chip-avatar"${estilo}>${avatar}</span><span class="staff-chip-nombre">${escHtml(nombre)}</span></button>`;
+}
+
+function renderStaffPicker() {
+  const cont = document.getElementById('staff-picker');
+  if (!cont) return;
+
+  if (disponibilidad?.modo !== 'agendas') {
+    cont.hidden = true;
+    return;
+  }
+  cont.hidden = false;
+
+  const lista = disponibilidad.profesionales || [];
+  if (!lista.length) {
+    cont.innerHTML = '<p class="staff-picker-vacio">Por ahora nadie tiene agenda para este servicio. Escríbenos por WhatsApp y te ayudamos a agendar.</p>';
+    return;
+  }
+
+  cont.innerHTML = '<div class="staff-picker-label">¿Con quién quieres tu cita?</div>'
+    + '<div class="staff-picker-opciones">'
+    + opcionProfesional(0, 'Cualquiera disponible', ICONO_CUALQUIERA)
+    + lista.map(p => opcionProfesional(p.id, p.nombre, escHtml(p.iniciales), p.color, p.texto)).join('')
+    + '</div>';
+}
+
+function elegirProfesional(id) {
+  if (booking.staffId === id) return;
+  booking.staffId = id;
+  // Cada profesional tiene su propia agenda: el horario elegido deja de valer.
+  booking.date = booking.timeStart = booking.timeEnd = null;
+  updateSlotBanner();
+  updateNextBtn();
+  updateSidebar();
+  loadAvailability();
 }
 
 // ── Step 1 helpers ─────────────────────────────────────────
@@ -305,20 +369,22 @@ function initServiceCards() {
 }
 
 function toggleService(card, checked) {
-  const id       = parseInt(card.dataset.id);
-  const duration = parseInt(card.dataset.duration);
-  const price    = parseFloat(card.dataset.price);
-  const name     = card.dataset.name;
+  const id         = parseInt(card.dataset.id);
+  const duration   = parseInt(card.dataset.duration);
+  const price      = parseFloat(card.dataset.price);
+  const name       = card.dataset.name;
+  const valoracion = card.dataset.valoracion === '1';
 
   if (checked) {
     if (!booking.services.find(s => s.id === id)) {
-      booking.services.push({id, name, duration, price});
+      booking.services.push({id, name, duration, price, valoracion});
     }
     card.classList.add('selected');
   } else {
     booking.services = booking.services.filter(s => s.id !== id);
     card.classList.remove('selected');
   }
+  aplicarReglaValoracion(card, checked);
 
   booking.totalDuration = booking.services.reduce((s, x) => s + x.duration, 0);
   updateSelectionBar();
@@ -330,12 +396,123 @@ function toggleService(card, checked) {
   updateSlotBanner();
 }
 
+// ── Cita de valoración ─────────────────────────────────────
+// La valoración no tiene costo y se agenda sola: primero se valora al cliente
+// y después pide otra cita para su procedimiento. El servidor valida lo mismo.
+
+function esSoloValoracion() {
+  return booking.services.length === 1 && booking.services[0].valoracion === true;
+}
+
+// «Otro servicio» con texto escrito: sin precio, lo cotiza el equipo.
+function esOtroServicio() {
+  return booking.otroActivo && booking.otroTexto !== '';
+}
+
+// Con la pasarela activa se paga el abono, salvo en la valoración (no se cobra)
+// y en «Otro servicio» (lo cotiza el equipo antes de cobrar).
+function requierePago() {
+  return PAGOS.activo && !esSoloValoracion() && !esOtroServicio();
+}
+
+// Nombres para los resúmenes: los del catálogo, o el texto del cliente.
+function nombresServicios() {
+  return esOtroServicio()
+    ? ['Otro servicio: ' + booking.otroTexto]
+    : booking.services.map(s => s.name);
+}
+
+// Marca/desmarca «Otro servicio»: sustituye a los del catálogo (y viceversa).
+function toggleOtroServicio(activo) {
+  booking.otroActivo = activo;
+  if (activo) {
+    booking.services = [];
+    document.querySelectorAll('.service-option.selected').forEach(op => op.classList.remove('selected'));
+  }
+  booking.totalDuration = activo ? OTRO.minutos : 0;
+  // La duración cambió: el horario elegido ya no vale.
+  booking.date = booking.timeStart = booking.timeEnd = null;
+
+  document.getElementById('otro-servicio').classList.toggle('selected', activo);
+  document.getElementById('otro-detalle').hidden = !activo;
+  if (activo) document.getElementById('otro-texto').focus();
+
+  aplicarReglaValoracion(null, false);
+  refrescarSeleccion();
+}
+
+// Lo que escribe el cliente en el campo de «Otro servicio».
+function actualizarTextoOtro(campo) {
+  booking.otroTexto = campo.value.replace(/\s+/g, ' ').trim();
+  document.getElementById('otro-contador').textContent = `${campo.value.length}/${campo.maxLength}`;
+  aplicarReglaValoracion(null, false); // ajusta el rótulo del último paso
+  refrescarSeleccion();
+}
+
+// Lo que cambia en pantalla cuando cambia la selección del paso 1.
+function refrescarSeleccion() {
+  updateSelectionBar();
+  updateNextBtn();
+  updateSidebar();
+  updateSlotBanner();
+}
+
+// Precio para mostrar: la valoración (y cualquier total de $0) dice "Sin costo".
+function fmtPrecioOGratis(n) {
+  return n > 0 ? fmtPrice(n) : 'Sin costo';
+}
+
+// Al elegir la valoración se quitan los demás servicios y quedan bloqueados
+// hasta que el cliente la desmarque.
+function aplicarReglaValoracion(card, checked) {
+  if (checked && card?.dataset.valoracion === '1') {
+    const id = parseInt(card.dataset.id);
+    booking.services = booking.services.filter(s => s.id === id);
+  }
+
+  const bloquear  = esSoloValoracion();
+  const elegidaId = bloquear ? booking.services[0].id : null;
+  document.querySelectorAll('.service-option').forEach(op => {
+    // «Otro servicio» también va solo: mientras esté marcado, todo el catálogo queda bloqueado.
+    const bloqueada = booking.otroActivo || (bloquear && parseInt(op.dataset.id) !== elegidaId);
+    const input     = op.querySelector('input[type="checkbox"]');
+    if (bloqueada) {
+      input.checked = false;
+      op.classList.remove('selected');
+    }
+    input.disabled = bloqueada;
+    op.classList.toggle('is-locked', bloqueada);
+  });
+
+  // Y a la inversa: con una valoración elegida no se puede marcar «Otro servicio».
+  const otro = document.getElementById('otro-servicio');
+  if (otro) {
+    otro.classList.toggle('is-locked', bloquear);
+    document.getElementById('otro-chk').disabled = bloquear;
+  }
+
+  const aviso = document.getElementById('valoracion-aviso');
+  if (aviso) aviso.hidden = !bloquear;
+
+  // El último paso se llama "Pago" solo si de verdad hay algo que pagar.
+  const etiqueta = document.querySelector('#ps-4 .progress-label');
+  if (etiqueta && PAGOS.activo) etiqueta.textContent = requierePago() ? 'Pago' : 'Confirmación';
+}
+
 function updateSelectionBar() {
   const bar   = document.getElementById('sel-bar');
   const label = document.getElementById('sel-bar-label');
   const dur   = document.getElementById('sel-bar-dur');
   const val   = document.getElementById('sel-bar-value');
   const cnt   = booking.services.length;
+
+  if (esOtroServicio()) {
+    bar.classList.add('has-items');
+    label.textContent = 'Otro servicio';
+    dur.textContent   = `${booking.totalDuration} min`;
+    val.textContent   = 'Por cotizar';
+    return;
+  }
 
   if (cnt === 0) {
     bar.classList.remove('has-items');
@@ -347,7 +524,7 @@ function updateSelectionBar() {
     const total = booking.services.reduce((s, x) => s + x.price, 0);
     label.textContent = `${cnt} servicio${cnt > 1 ? 's' : ''} seleccionado${cnt > 1 ? 's' : ''}`;
     dur.textContent   = `${booking.totalDuration} min`;
-    val.textContent   = fmtPrice(total);
+    val.textContent   = fmtPrecioOGratis(total);
   }
 }
 
@@ -377,7 +554,11 @@ function clearFieldError(inputId) {
 // ── Step 3 helpers ─────────────────────────────────────────
 function buildBookingSummaryBar() {
   const bsb = document.getElementById('bsb');
-  const svcNames = booking.services.map(s => escHtml(s.name)).join(', ');
+  const svcNames = nombresServicios().map(escHtml).join(', ');
+  const filaProfesional = disponibilidad?.modo === 'agendas'
+    ? '<div class="bsb-item"><span class="bsb-label">Profesional</span><span class="bsb-value">'
+      + escHtml(booking.staffId ? nombreDeProfesional(booking.staffId) : 'Cualquiera disponible') + '</span></div>'
+    : '';
   bsb.innerHTML = `
     <div class="bsb-item">
       <span class="bsb-label">Servicio${booking.services.length > 1 ? 's' : ''}</span>
@@ -394,7 +575,8 @@ function buildBookingSummaryBar() {
     <div class="bsb-item">
       <span class="bsb-label">Duración</span>
       <span class="bsb-value">${booking.totalDuration} min</span>
-    </div>`;
+    </div>
+    ${filaProfesional}`;
 }
 
 function validateStep3() {
@@ -439,6 +621,8 @@ function guardarDatosContacto() {
 function datosReserva() {
   return {
     services:       booking.services.map(s => s.id),
+    otro_servicio:  esOtroServicio() ? booking.otroTexto : '',
+    staff_id:       booking.staffId,
     date:           booking.date,
     time_start:     booking.timeStart,
     time_end:       booking.timeEnd,
@@ -490,10 +674,10 @@ function mostrarPanelPago() {
           <span class="pr-linea-precio">${fmtPrice(s.price)}</span>
         </div>`).join('')}
       <div class="pr-slot">
-        <span class="pr-slot-icon">📅</span>
+        <span class="pr-slot-icon">${ICO_CALENDARIO}</span>
         <div>
           <strong>${escHtml(fmtDate(booking.date))}</strong>
-          <span>${fmtTime(booking.timeStart)} – ${fmtTime(booking.timeEnd)}</span>
+          <span>${fmtTime(booking.timeStart)} – ${fmtTime(booking.timeEnd)}${textoProfesional() ? ' · ' + escHtml(textoProfesional()) : ''}</span>
         </div>
       </div>
     </div>
@@ -533,7 +717,7 @@ async function iniciarPago() {
 
     if (data.success && data.checkout_url) {
       // El cupo ya quedó apartado: la disponibilidad en cache queda vieja.
-      cachedWeek = null;
+      cacheDisponibilidad = '';
       window.location.href = data.checkout_url;
       return;
     }
@@ -583,8 +767,8 @@ async function submitBooking() {
     document.getElementById('s4-sending').style.display = 'none';
 
     if (data.success) {
-      cachedWeek = null; // invalidate: this slot is now taken
-      buildConfirmDetails();
+      cacheDisponibilidad = ''; // el horario ya quedó tomado
+      buildConfirmDetails(data.staff_nombre || '');
 
       // Enlace privado con el que el cliente consulta su cita cuando quiera.
       const enlace = document.getElementById('s4-status-link');
@@ -606,9 +790,13 @@ async function submitBooking() {
   }
 }
 
-function buildConfirmDetails() {
+// staffNombre: quién atiende, según el servidor (vacío en modo general).
+function buildConfirmDetails(staffNombre = '') {
   const d = document.getElementById('s4-details');
-  const svcNames = booking.services.map(s => escHtml(s.name)).join(', ');
+  const svcNames = nombresServicios().map(escHtml).join(', ');
+  const filaProfesional = staffNombre
+    ? '<div class="cd-item"><span class="cd-label">Te atiende</span><span class="cd-value">' + escHtml(staffNombre) + '</span></div>'
+    : '';
   d.innerHTML = `
     <div class="cd-item">
       <span class="cd-label">Nombre</span>
@@ -622,6 +810,7 @@ function buildConfirmDetails() {
       <span class="cd-label">Servicio${booking.services.length > 1 ? 's' : ''}</span>
       <span class="cd-value">${svcNames}</span>
     </div>
+    ${filaProfesional}
     <div class="cd-item">
       <span class="cd-label">Fecha</span>
       <span class="cd-value">${fmtDate(booking.date)}</span>
@@ -632,7 +821,7 @@ function buildConfirmDetails() {
     </div>
     <div class="cd-item">
       <span class="cd-label">Estado</span>
-      <span class="cd-value" style="color:#d97706">⏳ Pendiente de confirmación</span>
+      <span class="cd-value" style="color:#d97706;display:inline-flex;align-items:center;gap:6px">${ICO_RELOJ_CHICO} Pendiente de confirmación</span>
     </div>`;
 }
 
@@ -641,7 +830,7 @@ function updateSidebar() {
   const body = document.getElementById('sidebar-body');
   if (!body) return;
 
-  if (booking.services.length === 0) {
+  if (booking.services.length === 0 && !esOtroServicio()) {
     body.innerHTML = `
       <div class="sidebar-empty">
         <div class="sidebar-empty-icon">✦</div>
@@ -653,6 +842,16 @@ function updateSidebar() {
   const total = booking.services.reduce((s, x) => s + x.price, 0);
 
   let html = '<div>';
+  if (esOtroServicio()) {
+    html += `
+      <div class="sidebar-service-item">
+        <div>
+          <div class="ssi-name">Otro servicio</div>
+          <div class="ssi-meta">${escHtml(booking.otroTexto)}</div>
+        </div>
+        <div class="ssi-price">Por cotizar</div>
+      </div>`;
+  }
   booking.services.forEach(s => {
     html += `
       <div class="sidebar-service-item">
@@ -660,7 +859,7 @@ function updateSidebar() {
           <div class="ssi-name">${escHtml(s.name)}</div>
           <div class="ssi-meta">${s.duration} min</div>
         </div>
-        <div class="ssi-price">${fmtPrice(s.price)}</div>
+        <div class="ssi-price">${fmtPrecioOGratis(s.price)}</div>
       </div>`;
   });
   html += '</div>';
@@ -668,7 +867,7 @@ function updateSidebar() {
   if (booking.date && booking.timeStart) {
     html += `
       <div class="sidebar-slot">
-        <span class="ss-icon">📅</span>
+        <span class="ss-icon">${ICO_CALENDARIO}</span>
         <div>
           <div class="ss-date">${fmtDate(booking.date)}</div>
           <div class="ss-time">${fmtTime(booking.timeStart)} – ${fmtTime(booking.timeEnd)}</div>
@@ -676,14 +875,20 @@ function updateSidebar() {
       </div>`;
   }
 
+  if (disponibilidad?.modo === 'agendas') {
+    html += '<div class="sidebar-service-item"><div><div class="ssi-name">Profesional</div>'
+      + '<div class="ssi-meta">' + escHtml(booking.staffId ? nombreDeProfesional(booking.staffId) : 'Cualquiera disponible')
+      + '</div></div></div>';
+  }
+
   html += `
     <div class="sidebar-total">
       <span>Total estimado</span>
-      <span class="st-price">${fmtPrice(total)}</span>
+      <span class="st-price">${esOtroServicio() ? 'Por cotizar' : fmtPrecioOGratis(total)}</span>
     </div>`;
 
   // Con pasarela activa se muestra qué se paga ahora y qué queda pendiente.
-  if (PAGOS.activo && total > 0) {
+  if (requierePago() && total > 0) {
     const abono = calcularAbono(total);
     html += `
       <div class="sidebar-abono">
@@ -721,7 +926,7 @@ function goToStep(n) {
 
   // Back button — en el paso de pago todavía se puede volver a corregir datos.
   const btnBack = document.getElementById('btn-back');
-  btnBack.style.visibility = n > 1 && (n < 4 || PAGOS.activo) ? 'visible' : 'hidden';
+  btnBack.style.visibility = n > 1 && (n < 4 || requierePago()) ? 'visible' : 'hidden';
 
   // Next button
   const btnNext  = document.getElementById('btn-next');
@@ -729,7 +934,7 @@ function goToStep(n) {
   const acciones = document.getElementById('step-actions');
 
   if (n === 4) {
-    if (PAGOS.activo) {
+    if (requierePago()) {
       // El botón de pagar vive dentro del panel; aquí solo queda "Atrás".
       btnNext.style.display  = 'none';
       acciones.style.display = 'flex';
@@ -743,7 +948,7 @@ function goToStep(n) {
 
   btnNext.style.display = '';
   btnLabel.textContent  = n === 3
-    ? (PAGOS.activo ? 'Continuar al pago' : 'Confirmar reserva')
+    ? (requierePago() ? 'Continuar al pago' : 'Confirmar reserva')
     : 'Continuar';
   acciones.style.display = 'flex';
   updateNextBtn();
@@ -763,7 +968,7 @@ function updateNextBtn() {
   const btn = document.getElementById('btn-next');
   const n   = booking.step;
   let ok = false;
-  if (n === 1) ok = booking.services.length > 0;
+  if (n === 1) ok = booking.services.length > 0 || esOtroServicio();
   if (n === 2) ok = !!(booking.date && booking.timeStart);
   if (n === 3) ok = true; // validated on click
   btn.disabled = !ok;
@@ -794,7 +999,7 @@ document.getElementById('btn-next').addEventListener('click', () => {
     if (!validateStep3()) return;
     guardarDatosContacto();
     goToStep(4);
-    if (!PAGOS.activo) submitBooking();
+    if (!requierePago()) submitBooking();
   } else if (n < 4) {
     goToStep(n + 1);
   }
@@ -853,6 +1058,14 @@ document.getElementById('btn-pagar')?.addEventListener('click', iniciarPago);
 
 // Solo existe cuando el abono está configurado como opcional.
 document.getElementById('btn-sin-pago')?.addEventListener('click', submitBooking);
+
+// «Otro servicio»: el checkbox lo activa y el campo de texto describe lo que necesita.
+document.getElementById('otro-chk')?.addEventListener('change', function () {
+  toggleOtroServicio(this.checked);
+});
+document.getElementById('otro-texto')?.addEventListener('input', function () {
+  actualizarTextoOtro(this);
+});
 
 initServiceCards();
 initServiceFilters();

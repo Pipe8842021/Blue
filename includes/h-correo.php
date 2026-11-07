@@ -22,6 +22,7 @@
 // urlEstadoCita(): se asegura aquí que existan, sin depender de que quien
 // incluya este archivo se acuerde de incluir también h-reservas.php.
 require_once __DIR__ . '/h-reservas.php';
+require_once __DIR__ . '/h-negocio.php';
 
 /** Configuración de correo (config/mail.php, cacheada). */
 function configCorreo(): array {
@@ -278,7 +279,8 @@ function plantillaCorreo(string $tituloCorto, string $contenidoHtml, array $boto
     // Pie
     . '<tr><td style="padding:20px 32px;border-top:1px solid #eee;text-align:center">'
     . '<p style="margin:0;font-size:11.5px;color:#999;line-height:1.6">'
-    . 'Blue Therapy · Tu ciudad, Colombia<br>Este correo se generó automáticamente, no es necesario responderlo.'
+    . e(datoNegocio('nombre')) . ' · ' . e(datoNegocio('direccion'))
+    . '<br>Este correo se generó automáticamente, no es necesario responderlo.'
     . '</p></td></tr>'
 
     . '</table></td></tr></table></body></html>';

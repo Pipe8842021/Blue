@@ -2,6 +2,10 @@
    BLUE THERAPY — Booking Wizard  (v2)
    ============================================================ */
 
+/* Base: enlaces sin subrayado por defecto y cifras lineales (Playfair trae numerales antiguos) */
+:where(a) { text-decoration: none; }
+body { font-variant-numeric: lining-nums; }
+
 :root {
   --teal:       #5bc4b8;
   --teal-dark:  #3aa89e;
@@ -335,6 +339,15 @@
   overflow: hidden;
 }
 .progress-line.done { background: var(--teal); }
+
+/* 320–400 px: los 4 pasos caben sin quedar cortados */
+@media (max-width: 400px) {
+  .progress-nav   { padding: 22px 14px 18px; }
+  .progress-step  { min-width: 40px; }
+  .progress-icon  { width: 38px; height: 38px; }
+  .progress-label { font-size: 10px; letter-spacing: 0; }
+  .progress-line  { min-width: 8px; margin: 18px 4px 0; }
+}
 .progress-line.done::after {
   content: '';
   position: absolute;
@@ -555,7 +568,6 @@
 .service-option[data-cat-icon="therapy"] .service-card-visual {
   background: linear-gradient(145deg, #6896d4 0%, #9dbce8 45%, #ccddf5 100%);
 }
-
 /* Diagonal stripe overlay */
 .service-card-visual::before {
   content: '';
@@ -610,8 +622,9 @@
   box-shadow: 0 2px 10px rgba(91,196,184,.5);
 }
 
-/* Photo placeholder label */
+/* Photo placeholder label: texto de relleno, no se muestra a la clienta */
 .service-card-photo-label {
+  display: none;
   position: absolute;
   bottom: 12px;
   left: 50%;
@@ -910,7 +923,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 9px;
+  font-size: 0; /* el rótulo ya está junto al color; dentro del cuadro se montaba */
   font-weight: 700;
 }
 
@@ -1009,6 +1022,7 @@
 
 .form-group input,
 .form-group textarea {
+  box-sizing: border-box;
   width: 100%;
   padding: 13px 16px;
   border: 1.5px solid var(--border);
@@ -1288,6 +1302,19 @@
   .cd-item:nth-last-child(-n+2) { border-bottom: 1px solid var(--border); }
   .cd-item:last-child           { border-bottom: none; }
   .cal-legend        { gap: 10px; }
+  .cal-header        { gap: 8px; }
+  .cal-week-label    { flex-basis: 100%; order: -1; font-size: 16px; }
+  .cal-nav-btn       { flex: 1; }
+  /* Los 7 días caben en el celular sin deslizar: columna de hora angosta y celdas altas */
+  .cal-table { min-width: 0; }
+  .cal-table thead th { padding: 10px 0 8px; }
+  .cal-table thead th.th-time { width: 44px; letter-spacing: 0; padding: 10px 2px 8px; }
+  .cal-table thead th.th-day { min-width: 0; }
+  .th-day-label { padding: 3px 4px; font-size: 11px; }
+  .cal-table tbody td.td-time { padding: 0 6px; font-size: 10px; }
+  .td-cell { padding: 2px; }
+  .cell-box { height: 44px; font-size: 9px; letter-spacing: 0; overflow: hidden; }
+  .cell-box.closed, .cell-box.busy { font-size: 0; } /* el color ya dice cerrado/ocupado; el texto no cabe */
   .services-list     { grid-template-columns: 1fr; }
   .booking-summary-bar { flex-direction: column; }
   .bsb-item { border-right: none; border-bottom: 1px solid var(--border); }
@@ -1415,7 +1442,6 @@
   padding: 12px 14px;
   background: #fff;
   border: 1.5px solid var(--pg-teal-borde);
-  border-left: 4px solid var(--pg-teal);
   border-radius: 10px;
 }
 .pr-slot-icon { font-size: 1.1rem; flex-shrink: 0; }
@@ -1499,12 +1525,21 @@
   border-radius: 12px;
   background: var(--pg-aviso-fondo);
   border: 1.5px solid rgba(245,158,11,.45);
-  border-left: 4px solid var(--pg-aviso);
   font-size: 13px;
   line-height: 1.55;
   color: var(--pg-aviso-tinta);
 }
 .pago-aviso-icon { font-size: 1.15rem; flex-shrink: 0; line-height: 1.2; }
+
+/* Íconos SVG que reemplazan emojis: alineados al centro y con color de marca */
+.sii-icon, .ss-icon, .pr-slot-icon, .confirm-notice-icon, .pago-aviso-icon, .cita-aviso-icon,
+.error-icon, .pago-status-icon { display: inline-flex; align-items: center; justify-content: center; }
+.sii-icon svg, .ss-icon svg, .pr-slot-icon svg, .confirm-notice-icon svg, .pago-aviso-icon svg,
+.cita-aviso-icon svg, .error-icon svg, .pago-status-icon svg { display: block; flex-shrink: 0; }
+.sii-icon { display: flex; color: var(--teal-tinta); background: var(--teal-light); }
+.ss-icon, .pr-slot-icon, .cita-aviso-icon { color: var(--teal-tinta); }
+.confirm-notice-icon, .pago-aviso-icon { color: #b45309; }
+.error-icon { color: var(--pg-error); }
 .pago-aviso strong {
   display: block;
   margin-bottom: 3px;
@@ -1593,8 +1628,7 @@
   font-weight: 600;
   color: var(--pg-texto-2);
   cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  text-decoration: none;
   transition: color .22s;
 }
 .pago-alterno:hover { color: var(--pg-teal-tinta); }
@@ -1855,7 +1889,6 @@
   font-size: 13.5px;
   font-weight: 600;
   border: 1.5px solid transparent;
-  border-left-width: 4px;
 }
 .cita-flash--success { background: var(--pg-ok-fondo);    color: var(--pg-ok-tinta);    border-color: var(--pg-ok); }
 .cita-flash--error   { background: var(--pg-error-fondo); color: var(--pg-error-tinta); border-color: var(--pg-error); }
@@ -1990,7 +2023,6 @@
   border-radius: 12px;
   background: var(--pg-error-fondo);
   border: 1.5px solid rgba(239,68,68,.45);
-  border-left: 4px solid var(--pg-error);
   font-size: 13.5px;
   line-height: 1.55;
   color: var(--pg-error-tinta);
@@ -2087,7 +2119,6 @@
   border-radius: 12px;
   background: var(--pg-teal-tinte);
   border: 1.5px solid var(--pg-teal-borde);
-  border-left: 4px solid var(--pg-teal);
   font-size: 13px;
   line-height: 1.55;
   color: var(--text);
@@ -2171,8 +2202,7 @@
   font-weight: 700;
   color: var(--pg-error-tinta);
   cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration: none;
 }
 .cp-anular button:hover { color: var(--pg-error); }
 
@@ -2233,7 +2263,6 @@
   margin: 0;
   padding: 14px 16px;
   border: 1.5px solid var(--pg-borde);
-  border-left: 4px solid var(--pg-aviso);
   border-radius: 10px;
   background: #fff;
   font-family: 'DM Sans', sans-serif;
@@ -2283,8 +2312,7 @@
   font-size: 13px;
   font-weight: 700;
   color: var(--pg-teal-tinta);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  text-decoration: none;
 }
 .cita-wa:hover { color: var(--dark); }
 
@@ -2317,8 +2345,8 @@
   .pr-monto--abono span:last-child { font-size: 23px; }
   .btn-pagar          { font-size: 14.5px; padding: 15px 22px; }
   .booking-hero-badge { font-size: 12px; padding: 8px 14px; }
-  .pago-acciones      { flex-direction: column; }
-  .pago-acciones .btn-home { width: 100%; justify-content: center; }
+  .pago-acciones      { flex-direction: column; align-items: stretch; }
+  .pago-acciones .btn-home { width: 100%; box-sizing: border-box; padding: 13px 20px; justify-content: center; }
 
   .cita-wrap { padding: 92px 16px 48px; }
   .cita-wrap .pago-card { padding: 24px 18px 22px; border-radius: 16px; }
@@ -2336,4 +2364,286 @@
   .cita-bloque--staff { padding: 18px 16px; }
   .cita-enlace { flex-direction: column; }
   .cita-enlace button { width: 100%; }
+}
+
+/* ── Cita de valoración (sin costo, se agenda sola) ──────────
+   booking.js marca .is-locked los demás servicios al elegirla. */
+.service-card-valoracion { color: var(--teal-tinta); }
+.service-card-price--gratis { color: var(--teal-tinta); }
+
+.service-option.is-locked {
+  opacity: .45;
+  cursor: not-allowed;
+}
+.service-option.is-locked:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--border);
+}
+.service-option.is-locked .service-card-add { visibility: hidden; }
+
+.valoracion-aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--teal-light);
+  border: 1px solid var(--teal-glow);
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.valoracion-aviso[hidden] { display: none; }
+.valoracion-aviso svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--teal-tinta);
+}
+.valoracion-aviso strong { color: var(--teal-tinta); }
+
+/* ── Elegir profesional (agendas por profesional) ────────────
+   booking.js llena #staff-picker con «Cualquiera disponible» + cada una. */
+.staff-picker { margin-bottom: 18px; }
+.staff-picker[hidden] { display: none; }
+
+.staff-picker-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dark);
+  margin-bottom: 10px;
+}
+.staff-picker-opciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.staff-picker-vacio {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--teal-light);
+  color: var(--text);
+  font-size: 13.5px;
+}
+
+.staff-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 14px 8px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: 50px;
+  background: #fff;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color .18s, box-shadow .18s, color .18s;
+}
+.staff-chip:hover { border-color: var(--teal); }
+.staff-chip.active {
+  border-color: var(--teal);
+  color: var(--teal-tinta);
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(91,196,184,.22);
+}
+
+.staff-chip-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--teal-light);
+  color: var(--teal-tinta);
+  font-size: 11.5px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.staff-chip-avatar svg { width: 15px; height: 15px; }
+.staff-chip.active .staff-chip-avatar { background: var(--teal); color: #fff; }
+
+@media (max-width: 520px) {
+  .staff-chip { flex: 1 1 100%; }
+}
+
+/* ── Cancelar la cita desde el enlace del cliente (cita.php) ── */
+.cita-cancelar {
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.cita-cancelar summary {
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--muted);
+  list-style: none;
+}
+.cita-cancelar summary::-webkit-details-marker { display: none; }
+.cita-cancelar summary::before { content: '▸ '; }
+.cita-cancelar[open] summary::before { content: '▾ '; }
+.cita-cancelar summary:hover { color: var(--text); }
+
+.cita-cancelar-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.cita-cancelar-form label { font-size: 13px; font-weight: 600; color: var(--text); }
+.cita-cancelar-form label span { font-weight: 400; color: var(--muted); }
+.cita-cancelar-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+}
+.btn-cancelar-cita {
+  align-self: flex-start;
+  padding: 10px 18px;
+  border: 1.5px solid var(--danger);
+  border-radius: 50px;
+  background: #fff;
+  color: var(--danger);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .18s, border-color .18s;
+}
+.btn-cancelar-cita:hover { background: rgba(224,85,85,.08); }
+
+.cita-cancelar-no {
+  margin: 16px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Acciones de devolución del abono (solo admin) */
+.cita-devolucion { margin-top: 12px; }
+.cita-devolucion button { font-family: inherit; cursor: pointer; }
+
+/* ── Otro servicio (fuera del catálogo) ──────────────────────
+   Tarjeta ancha tras el catálogo: al marcarla aparece el campo de texto.
+   booking.js pone .selected al activarla y .is-locked si hay una valoración. */
+.otro-servicio {
+  margin-top: 22px;
+  border-radius: 16px;
+  border: 2px dashed var(--teal-glow);
+  background: var(--white);
+  transition: border-color .22s, box-shadow .22s, background .22s;
+}
+.otro-servicio:hover { border-color: var(--teal); }
+.otro-servicio.selected {
+  border-style: solid;
+  border-color: var(--teal);
+  box-shadow: 0 6px 24px rgba(91,196,184,.22);
+}
+.otro-servicio.is-locked { opacity: .45; }
+.otro-servicio.is-locked:hover { border-color: var(--teal-glow); }
+.otro-servicio.is-locked .otro-servicio-cabecera { cursor: not-allowed; }
+
+.otro-servicio-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  cursor: pointer;
+  user-select: none;
+}
+.otro-servicio-cabecera input { display: none; }
+
+.otro-servicio-icono {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--teal-light);
+  color: var(--teal-tinta);
+}
+.otro-servicio-icono svg { width: 22px; height: 22px; }
+
+.otro-servicio-titulo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.otro-servicio-titulo strong { font-size: 15px; color: var(--dark); }
+.otro-servicio-titulo em { font-style: normal; font-size: 12.5px; color: #8a8a8a; }
+
+.otro-servicio-marca {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid #e0e0e0;
+  color: transparent;
+  font-size: 13px;
+  font-weight: 700;
+  transition: background .22s, border-color .22s, color .22s;
+}
+.otro-servicio.selected .otro-servicio-marca {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: #fff;
+}
+
+.otro-servicio-detalle { padding: 0 18px 18px; }
+.otro-servicio-detalle[hidden] { display: none; }
+.otro-servicio-detalle label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dark);
+}
+.otro-servicio-detalle textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 84px;
+  padding: 12px 14px;
+  border: 1.5px solid #e6e6e6;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--dark);
+  background: #fff;
+  transition: border-color .22s, box-shadow .22s;
+}
+.otro-servicio-detalle textarea::placeholder { color: #bbb; }
+.otro-servicio-detalle textarea:focus {
+  outline: none;
+  border-color: var(--teal);
+  box-shadow: 0 0 0 4px var(--teal-glow);
+}
+.otro-servicio-pie {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #8a8a8a;
+}
+.otro-servicio-pie span:last-child { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 600px) {
+  .otro-servicio-cabecera { padding: 14px; gap: 12px; }
+  .otro-servicio-detalle { padding: 0 14px 14px; }
+  .otro-servicio-pie { flex-direction: column; gap: 4px; }
 }

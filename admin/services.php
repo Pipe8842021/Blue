@@ -28,6 +28,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // basta castear. Conserva decimales: "80000.50" -> 80000.50.
                 $price    = max(0, (float)($_POST['price'] ?? 0));
                 $featured = isset($_POST['featured']) ? 1 : 0;
+                // Cita de valoración: no tiene costo, así que el precio se fuerza a 0
+                // (el wizard la agenda sin abono y sola, sin otros servicios).
+                $assessment = isset($_POST['is_assessment']) ? 1 : 0;
+                if ($assessment) $price = 0;
 
                 if ($name === '' || $catId === 0) { setFlash('error', 'Nombre y categoría son obligatorios.'); break; }
 
@@ -53,12 +57,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 if ($id > 0) {
-                    $db->prepare("UPDATE services SET category_id=?, name=?, description=?, image=?, duration_min=?, price=?, featured=? WHERE id=?")
-                       ->execute([$catId, $name, $desc, $imagen, $dur, $price, $featured, $id]);
+                    $db->prepare("UPDATE services SET category_id=?, name=?, description=?, image=?, duration_min=?, price=?, featured=?, is_assessment=? WHERE id=?")
+                       ->execute([$catId, $name, $desc, $imagen, $dur, $price, $featured, $assessment, $id]);
                     setFlash('success', 'Servicio actualizado.');
                 } else {
-                    $db->prepare("INSERT INTO services (category_id, name, description, image, duration_min, price, featured) VALUES (?,?,?,?,?,?,?)")
-                       ->execute([$catId, $name, $desc, $imagen, $dur, $price, $featured]);
+                    $db->prepare("INSERT INTO services (category_id, name, description, image, duration_min, price, featured, is_assessment) VALUES (?,?,?,?,?,?,?,?)")
+                       ->execute([$catId, $name, $desc, $imagen, $dur, $price, $featured, $assessment]);
                     setFlash('success', 'Servicio creado.');
                 }
                 break;
@@ -218,6 +222,9 @@ require_once __DIR__ . '/../includes/admin_layout.php';
                             Destacado
                           </span>
                         <?php endif; ?>
+                        <?php if ((int)$s['is_assessment'] === 1): ?>
+                          <span class="svc-valoracion">Valoración</span>
+                        <?php endif; ?>
                       </div>
                       <?php if ($s['description']): ?>
                         <div class="client-phone" style="max-width:280px;white-space:normal"><?= e($s['description']) ?></div>
@@ -227,7 +234,7 @@ require_once __DIR__ . '/../includes/admin_layout.php';
                 </td>
                 <td><span class="pill"><?= e($s['category_name']) ?></span></td>
                 <td><?= (int)$s['duration_min'] ?> min</td>
-                <td style="font-weight:600"><?= formatPrice((float)$s['price']) ?></td>
+                <td style="font-weight:600"><?= (int)$s['is_assessment'] === 1 ? 'Sin costo' : formatPrice((float)$s['price']) ?></td>
                 <td><?= $s['active'] ? '<span class="badge badge-confirmed">Activo</span>' : '<span class="badge badge-cancelled">Inactivo</span>' ?></td>
                 <td>
                   <div class="rowmenu">
@@ -373,6 +380,13 @@ require_once __DIR__ . '/../includes/admin_layout.php';
               Marcar como destacado (se muestra con badge en el listado)
             </label>
           </div>
+
+          <div class="form-field full">
+            <label class="svc-check">
+              <input type="checkbox" name="is_assessment" id="svc_assessment" value="1" onchange="sincronizarValoracion()">
+              Cita de valoración: sin costo y se agenda sola, sin otros servicios
+            </label>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
@@ -449,6 +463,13 @@ document.getElementById('svc_remove').addEventListener('change', e => {
   }
 });
 
+// La valoración no tiene costo: el precio queda en 0 y no se puede editar.
+function sincronizarValoracion(){
+  const esValoracion = document.getElementById('svc_assessment').checked;
+  const precio = document.getElementById('svc_price');
+  if (esValoracion) precio.value = 0;
+  precio.readOnly = esValoracion;
+}
 function newService(){
   document.getElementById('svcModalTitle').textContent = 'Nuevo servicio';
   document.getElementById('svc_id').value = 0;
@@ -457,6 +478,8 @@ function newService(){
   document.getElementById('svc_dur').value = 60;
   document.getElementById('svc_price').value = 0;
   document.getElementById('svc_featured').checked = false;
+  document.getElementById('svc_assessment').checked = false;
+  sincronizarValoracion();
   document.getElementById('svc_image').value = '';
   document.getElementById('svc_remove').checked = false;
   document.getElementById('svc_remove_wrap').hidden = true;
@@ -472,6 +495,8 @@ function editService(s){
   document.getElementById('svc_price').value = parseFloat(s.price);
   document.getElementById('svc_desc').value = s.description || '';
   document.getElementById('svc_featured').checked = Number(s.featured) === 1;
+  document.getElementById('svc_assessment').checked = Number(s.is_assessment) === 1;
+  sincronizarValoracion();
   document.getElementById('svc_image').value = '';
   document.getElementById('svc_remove').checked = false;
   document.getElementById('svc_remove_wrap').hidden = !s.image;

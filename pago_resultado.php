@@ -14,6 +14,8 @@ require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/h-reservas.php';
 require_once __DIR__ . '/includes/h-pagos.php';
+require_once __DIR__ . '/includes/h-pedidos.php';   // pagos de la tienda (referencias PED-…)
+require_once __DIR__ . '/includes/h-iconos.php';
 
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
@@ -39,6 +41,19 @@ try {
         // controla el navegador y no sirve como prueba de que se pagó.
         $transaccion = consultarTransaccionWompi($transaccionId);
         $referencia  = (string)($transaccion['reference'] ?? '');
+
+        // Pago de un pedido de la tienda: se aplica y el cliente sigue en la página de su pedido.
+        if (referenciaEsDePedido($referencia)) {
+            $pagoPedido = buscarPagoPedidoPorReferencia($db, $referencia);
+            if ($pagoPedido) {
+                if ($transaccion) aplicarResultadoPedido($db, $pagoPedido, $transaccion);
+                $pedido = pedidoPorId($db, (int)$pagoPedido['order_id']);
+                if ($pedido) {
+                    header('Location: /Blue/pedido.php?id=' . (int)$pedido['id'] . '&t=' . $pedido['token']);
+                    exit;
+                }
+            }
+        }
 
         if ($referencia !== '') {
             $pago = buscarPagoPorReferencia($db, $referencia);
@@ -102,7 +117,7 @@ $vistas = [
     ],
     'pending' => [
         'clase'    => 'aviso',
-        'icono'    => '⏳',
+        'icono'    => iconoSvg('reloj', 30),
         'titulo'   => 'Tu pago está en proceso',
         'texto'    => 'Algunos medios de pago (como PSE) tardan unos minutos en confirmarse. Estamos guardando tu horario; apenas se acredite el abono, tu cita se confirma automáticamente.',
     ],

@@ -45,7 +45,7 @@ function citasDelStaff(PDO $db, int $staffId, string $cond, array $extra = []): 
     $sql = "
         SELECT a.id, a.date, a.time_start, a.time_end, a.status,
                c.name AS client_name, c.phone AS client_phone,
-               GROUP_CONCAT(DISTINCT sv.name ORDER BY sv.name SEPARATOR ', ') AS services,
+               " . sqlServiciosDeCita() . " AS services,
                COALESCE(SUM(sv.price),0) AS total_price
         FROM appointments a
         JOIN clients c ON a.client_id = c.id

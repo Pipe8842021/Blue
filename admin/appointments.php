@@ -29,9 +29,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
 
             case 'cancel':
-                $db->prepare("UPDATE appointments SET status='cancelled' WHERE id=?")->execute([$id]);
-                avisarPorCorreoSiCorresponde($db, $id, 'cancelada');
-                setFlash('info', 'La cita fue cancelada.');
+                // Aplica la política del abono y avisa al equipo y al cliente (h-cancelaciones.php).
+                $r = cancelarCita($db, $id, 'equipo', (int)currentUser()['id'], trim($_POST['motivo'] ?? ''));
+                setFlash($r['ok'] ? 'info' : 'error', $r['msg']);
                 break;
 
             case 'complete':
@@ -102,10 +102,10 @@ $totalPages = max(1, (int)ceil($total / $perPage));
 // Listado
 $sql = "
     SELECT a.id, a.date, a.time_start, a.time_end, a.status, a.notes, a.total_duration,
-           a.client_id, a.staff_id,
+           a.client_id, a.staff_id, a.other_service,
            c.name AS client_name, c.phone AS client_phone, c.email AS client_email,
            u.name AS staff_name,
-           GROUP_CONCAT(DISTINCT sv.name ORDER BY sv.name SEPARATOR ', ') AS services,
+           " . sqlServiciosDeCita() . " AS services,
            GROUP_CONCAT(DISTINCT aps.service_id) AS service_ids,
            COALESCE(SUM(sv.price),0) AS total_price
     FROM appointments a
@@ -126,6 +126,7 @@ $pagadoPorCita = pagosPorCita($db, array_column($rows, 'id'));
 
 // Staff disponible para asignar
 $staffList = $db->query("SELECT id, name FROM users WHERE active=1 ORDER BY name")->fetchAll();
+$colores   = coloresProfesionales($db);   // color de cada profesional en la columna «Profesional»
 
 // Listas para el modal de crear/editar cita
 $clientes  = obtenerClientes($db);
@@ -220,10 +221,10 @@ function buildUrl(array $overrides): string {
                   <div><?= date('d M Y', strtotime($a['date'])) ?></div>
                   <div style="color:var(--muted);font-size:12px"><?= date('g:i A', strtotime($a['time_start'])) ?></div>
                 </td>
-                <td><?= $a['staff_name'] ? e($a['staff_name']) : '<span class="pill pill-muted">Sin asignar</span>' ?></td>
+                <td><?= etiquetaProfesional($a['staff_name'], colorDeProfesional($colores, $a['staff_id'] ? (int)$a['staff_id'] : null)) ?></td>
                 <td style="font-weight:600">
-                  <?= formatPrice((float)$a['total_price']) ?>
-                  <?php $insignia = insigniaPagoCita((float)$a['total_price'], (float)($pagadoPorCita[$a['id']] ?? 0)); ?>
+                  <?= $a['other_service'] !== null ? 'Por cotizar' : formatPrice((float)$a['total_price']) ?>
+                  <?php $insignia = $a['status'] === 'cancelled' ? '' : insigniaPagoCita((float)$a['total_price'], (float)($pagadoPorCita[$a['id']] ?? 0)); // una cita cancelada no tiene saldo por cobrar ?>
                   <?php if ($insignia): ?>
                     <div style="margin-top:5px;font-weight:500"><?= $insignia ?></div>
                   <?php endif; ?>
@@ -235,7 +236,8 @@ function buildUrl(array $overrides): string {
                         "id"=>(int)$a["id"], "client"=>$a["client_name"], "phone"=>$a["client_phone"], "email"=>$a["client_email"],
                         "services"=>$a["services"], "date"=>date("d M Y",strtotime($a["date"])),
                         "time"=>date("g:i A",strtotime($a["time_start"]))." – ".date("g:i A",strtotime($a["time_end"])),
-                        "staff"=>$a["staff_name"], "notes"=>$a["notes"], "total"=>formatPrice((float)$a["total_price"]),
+                        "staff"=>$a["staff_name"], "staff_color"=>colorDeProfesional($colores, $a["staff_id"] ? (int)$a["staff_id"] : null),
+                        "notes"=>$a["notes"], "total"=>formatPrice((float)$a["total_price"]),
                         "status"=>$a["status"],
                     ];
                     $editData = [
@@ -243,6 +245,7 @@ function buildUrl(array $overrides): string {
                         'services' => array_map('intval', array_filter(explode(',', (string)$a['service_ids']))),
                         'date' => $a['date'], 'time_start' => $a['time_start'],
                         'status' => $a['status'], 'notes' => $a['notes'], 'staff_id' => $a['staff_id'],
+                        'other_service' => $a['other_service'],
                     ];
                   ?>
                   <div class="rowmenu">
@@ -324,7 +327,7 @@ function buildUrl(array $overrides): string {
           <select name="staff_id" class="form-control">
             <option value="">— Asignar más tarde —</option>
             <?php foreach ($staffList as $st): ?>
-              <option value="<?= $st['id'] ?>"><?= e($st['name']) ?></option>
+              <option value="<?= $st['id'] ?>" style="color:<?= e(colorDeProfesional($colores, (int)$st['id'])) ?>">● <?= e($st['name']) ?></option>
             <?php endforeach; ?>
           </select>
         </div>
@@ -380,12 +383,19 @@ function telWhatsapp(phone){
 function escHtml(s){
   return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+// «Profesional» con su punto de color (el mismo de los calendarios).
+function filaProfesional(d){
+  const valor = d.staff
+    ? `<span style="display:inline-flex;align-items:center;gap:7px"><i style="width:10px;height:10px;border-radius:50%;background:${escHtml(d.staff_color)}"></i>${escHtml(d.staff)}</span>`
+    : 'Sin asignar';
+  return `<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0f1f3;font-size:13px"><span style="color:#9ca3af">Profesional</span><span style="font-weight:600;text-align:right">${valor}</span></div>`;
+}
 function openDetail(d){
-  const row = (l,v) => v ? `<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0f1f3;font-size:13px"><span style="color:#9ca3af">${l}</span><span style="font-weight:600;text-align:right">${escHtml(v)}</span></div>` : '';
+  const row =(l,v) => v ? `<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0f1f3;font-size:13px"><span style="color:#9ca3af">${l}</span><span style="font-weight:600;text-align:right">${escHtml(v)}</span></div>` : '';
   document.getElementById('detailBody').innerHTML =
     row('Cliente', d.client) + row('Teléfono', d.phone) + row('Email', d.email) +
     row('Servicios', d.services) + row('Fecha', d.date) + row('Horario', d.time) +
-    row('Profesional', d.staff || 'Sin asignar') + row('Total', d.total) +
+    filaProfesional(d) + row('Total', d.total) +
     (d.notes ? `<div style="margin-top:14px"><div style="color:#9ca3af;font-size:12px;margin-bottom:4px">Notas</div><div style="font-size:13px">${escHtml(d.notes)}</div></div>` : '');
 
   // Recordatorio por WhatsApp (mensaje prellenado)

@@ -43,7 +43,18 @@
 
 /* ── Reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: var(--font); color: var(--text); background: var(--bg-page); }
+/* Cifras lineales: Playfair usa numerales antiguos ("0" parece "o") */
+body { font-family: var(--font); color: var(--text); background: var(--bg-page); font-variant-numeric: lining-nums; }
+/* Tope defensivo: un SVG sin tamaño propio nunca debe crecer dentro de controles */
+.btn svg, .topbar-btn svg, .tab svg, .pill svg, .badge svg, .stat-icon svg { max-width: 28px; max-height: 28px; }
+
+/* Pantallas táctiles: objetivos de toque de al menos 44 px */
+@media (pointer: coarse) {
+  .btn, .topbar-btn, .sidebar-link, .filter-select, .filter-input, .form-control,
+  .rowmenu-trigger, .pagination a, .pagination button, .cat-chip, .btn-export, .dash-link, .tab { min-height: 44px; }
+  .rowmenu-trigger, .pagination a, .pagination button, .sidebar-logout { min-width: 44px; min-height: 44px; }
+  .cat-chip, .dash-link, .btn-export, .sidebar-logout { display: inline-flex; align-items: center; justify-content: center; }
+}
 a { text-decoration: none; color: inherit; }
 img { max-width: 100%; display: block; }
 ul { list-style: none; }
@@ -267,6 +278,8 @@ ul { list-style: none; }
   color: var(--text);
   cursor: pointer;
   transition: all var(--t);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .topbar-btn:hover { border-color: var(--teal); color: var(--teal); }
 .topbar-btn svg   { width: 15px; height: 15px; }
@@ -345,17 +358,7 @@ ul { list-style: none; }
   box-shadow: 0 4px 6px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.1);
 }
 
-.stat-card::after {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; bottom: 0;
-  width: 4px;
-}
-.stat-card.teal::after    { background: var(--teal); }
-.stat-card.amber::after   { background: var(--pending); }
-.stat-card.green::after   { background: var(--confirmed); }
-.stat-card.purple::after  { background: var(--completed); }
-
+/* El color de cada tarjeta lo lleva el chip del ícono; sin franja lateral */
 .stat-icon {
   width: 44px; height: 44px;
   border-radius: 10px;
@@ -394,6 +397,8 @@ ul { list-style: none; }
 }
 .stat-trend.up   { color: var(--confirmed); }
 .stat-trend.down { color: var(--cancelled); }
+.stat-trend a    { color: var(--teal-dark); font-weight: 600; text-decoration: none; }
+.stat-trend a:hover { color: var(--teal); }
 
 /* ── Table ── */
 .table-wrap {
@@ -471,6 +476,34 @@ table.data-table {
   transition: background var(--t);
 }
 .data-table tbody tr:hover { background: #fafafa; }
+
+/* ── Tablas en tarjetas (celular) ──
+   table-scroll.js rotula cada celda (data-label) con el encabezado de su columna. */
+@media (max-width: 768px) {
+  .table-wrap { overflow: visible; }
+  .data-table, .data-table tbody, .data-table tr, .data-table td { display: block; width: 100%; }
+  /* Algunas celdas traen max-width en línea (p. ej. servicios): en tarjeta deben usar todo el ancho */
+  .data-table td { max-width: none !important; }
+  .data-table thead {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);
+  }
+  .data-table tbody tr { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .data-table tbody tr:last-child { border-bottom: none; }
+  .data-table td {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 6px 0; border-bottom: none; text-align: right;
+  }
+  .data-table td[data-label]::before {
+    content: attr(data-label); flex-shrink: 0; text-align: left;
+    font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--muted);
+  }
+  .data-table .td-valor { min-width: 0; text-align: right; overflow-wrap: anywhere; }
+  .data-table tbody tr { position: relative; }
+  .data-table td.td-titulo { justify-content: flex-start; text-align: left; padding: 0 52px 10px 0; }
+  /* El menú ⋮ sube a la esquina de la tarjeta en vez de ocupar una fila */
+  .data-table td.td-acciones { position: absolute; top: 8px; right: 10px; width: auto; padding: 0; }
+  .data-table td[colspan] { display: block; text-align: center; }
+}
 
 /* Client cell */
 .client-cell { display: flex; align-items: center; gap: 10px; }
@@ -641,9 +674,9 @@ table.data-table {
   font-size: 13px;
   font-weight: 500;
 }
-.flash-success { background: #d1fae5; color: #065f46; border-left: 3px solid var(--confirmed); }
-.flash-error   { background: #fee2e2; color: #991b1b; border-left: 3px solid var(--cancelled); }
-.flash-info    { background: rgba(91,196,184,.1); color: var(--teal-dark); border-left: 3px solid var(--teal); }
+.flash-success { background: #d1fae5; color: #065f46; border: 1px solid rgba(16,185,129,.35); }
+.flash-error   { background: #fee2e2; color: #991b1b; border: 1px solid rgba(239,68,68,.35); }
+.flash-info    { background: rgba(91,196,184,.1); color: var(--teal-dark); border: 1px solid rgba(91,196,184,.4); }
 
 /* ── Responsive ── */
 @media (max-width: 1024px) {
@@ -669,7 +702,14 @@ table.data-table {
 }
 
 @media (max-width: 480px) {
-  .stats-grid { grid-template-columns: 1fr; }
+  /* Barra superior: botones más compactos; si hay acción principal, el título cede (la página ya tiene su h1) */
+  .admin-topbar, .topbar-actions { gap: 6px; }
+  .topbar-btn { padding: 7px 9px; font-size: 12px; }
+  .admin-topbar:has(.topbar-btn-primary) .topbar-title { display: none; }
+  /* 2×2 compacto: cuatro tarjetas apiladas ocupaban casi una pantalla entera */
+  .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .stat-card  { flex-direction: column; gap: 12px; padding: 16px; }
+  .stat-value { font-size: 24px; }
 }
 
 /* ════════════════════════════════════════
@@ -769,8 +809,13 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 }
 
 /* ── Tabs ── */
-.tabs { display: flex; gap: 4px; border-bottom: 1.5px solid var(--border); margin-bottom: 22px; }
+.tabs {
+  display: flex; gap: 4px; border-bottom: 1.5px solid var(--border); margin-bottom: 22px;
+  overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.tabs::-webkit-scrollbar { display: none; }
 .tab {
+  flex-shrink: 0; white-space: nowrap; font-family: var(--font);
   padding: 11px 18px; font-size: 13px; font-weight: 600; color: var(--muted);
   cursor: pointer; border-bottom: 2.5px solid transparent; margin-bottom: -1.5px;
   transition: all var(--t); background: none; border-top: none; border-left: none; border-right: none;
@@ -826,4 +871,11 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 @media (max-width: 768px) {
   .form-grid { grid-template-columns: 1fr; }
   .summary-grid { grid-template-columns: 1fr; }
+}
+
+/* Va al final para ganarle a las reglas base de .pagination y .topbar-btn (mismo peso) */
+@media (pointer: coarse) {
+  .pagination a, .pagination span { min-width: 44px; min-height: 44px; }
+  .topbar-btn { min-width: 44px; justify-content: center; }
+  .calendar-nav .btn, .cal-nav .btn { min-width: 44px; }
 }

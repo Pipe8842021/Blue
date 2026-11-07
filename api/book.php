@@ -22,16 +22,6 @@ if (!verifyCsrf($csrfToken)) {
     exit;
 }
 
-// ── Con abono obligatorio, este camino queda cerrado ───────
-// La reserva solo puede nacer desde api/pago_iniciar.php, que es quien
-// aparta el cupo contra un pago. Se valida en el servidor y no solo en
-// el wizard, para que no se pueda saltar el pago llamando a esta URL.
-if (abonoEsObligatorio()) {
-    http_response_code(409);
-    echo json_encode(['error' => 'Para agendar debes pagar el abono. Recarga la página e intenta de nuevo.']);
-    exit;
-}
-
 // ── Límite de frecuencia ──────────────────────────────────
 // Evita que una misma sesión haga spam de reservas (bots, doble envío, etc.).
 $now = time();
@@ -68,6 +58,18 @@ try {
     exit;
 }
 
+// ── Con abono obligatorio, este camino solo acepta la valoración ──
+// Cualquier otra reserva nace desde api/pago_iniciar.php, que aparta el cupo
+// contra un pago. La valoración (sin costo) y «Otro servicio» (el equipo lo
+// cotiza) entran directo por aquí.
+// Se valida en el servidor y no solo en el wizard, para que no se pueda
+// saltar el pago llamando a esta URL.
+if (abonoEsObligatorio() && !reservaEsSinCosto($db, $datos)) {
+    http_response_code(409);
+    echo json_encode(['error' => 'Para agendar debes pagar el abono. Recarga la página e intenta de nuevo.']);
+    exit;
+}
+
 try {
     // Devuelve a la agenda los cupos de abonos que nunca se pagaron.
     liberarReservasVencidas($db);
@@ -77,11 +79,15 @@ try {
     // La cita ya quedó guardada: un problema al avisar por correo no debe
     // convertirse en un 500 para el cliente ni ocultar que sí se reservó.
     avisarPorCorreoSiCorresponde($db, $reserva['appointment_id'], 'solicitud');
+    // Aviso al equipo (campana del panel): administradores y la profesional asignada.
+    avisarReservaAlEquipo($db, $reserva['appointment_id'], 'reserva_nueva');
 
     $_SESSION['last_booking_at'] = $now;
     echo json_encode([
         'success'        => true,
         'appointment_id' => $reserva['appointment_id'],
+        // Quién atiende (vacío en modo general, sin agendas por profesional).
+        'staff_nombre'   => nombreProfesional($db, $reserva['staff_id']),
         // Enlace privado para que el cliente siga el estado de su cita.
         'status_url'     => urlEstadoCita($db, $reserva['appointment_id']),
     ]);

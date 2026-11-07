@@ -73,6 +73,14 @@ try {
     exit;
 }
 
+// La valoración (sin costo) y «Otro servicio» (lo cotiza el equipo) se agendan
+// por api/book.php, nunca con abono.
+if (reservaEsSinCosto($db, $datos)) {
+    http_response_code(422);
+    echo json_encode(['error' => 'Esta reserva no se paga en línea: se agenda sin pagar. Recarga la página e intenta de nuevo.']);
+    exit;
+}
+
 $apptId = null;
 
 try {
@@ -136,6 +144,7 @@ try {
         'checkout_url'   => urlCheckoutWompi() . '?' . http_build_query($campos),
         'reference'      => $referencia,
         'appointment_id' => $apptId,
+        'staff_nombre'   => nombreProfesional($db, $reserva['staff_id']),
         'amount'         => (float)$abono,
         'amount_label'   => formatPrice((float)$abono),
         'total'          => (float)$reserva['total_price'],

@@ -18,6 +18,8 @@
 // Trae también h-reservas.php (citaConDetalle, urlEstadoCita, etc.): las
 // funciones de este archivo avisan por correo cuando cambia el estado.
 require_once __DIR__ . '/h-correo.php';
+// Avisos al equipo en la campana del panel (abono aprobado).
+require_once __DIR__ . '/h-notificaciones.php';
 
 // ── Estados de Wompi traducidos a los nuestros ──────────────
 const ESTADOS_WOMPI = [
@@ -97,6 +99,11 @@ function huellaConfigPagos(): string {
  * redondea hacia arriba para no pedir cifras incómodas.
  */
 function calcularAbonoReserva(float $totalServicios): float {
+    // Una cita sin costo (la valoración) nunca lleva abono: sin esto, el
+    // mínimo configurado le cobraría $20.000 a un servicio de $0.
+    if ($totalServicios <= 0) {
+        return 0.0;
+    }
     $r = configPagos()['abono'] ?? [];
     $porcentaje = max(1, min(100, (float)($r['porcentaje'] ?? 30)));
     $minimo     = max(0, (float)($r['minimo'] ?? 0));
@@ -443,6 +450,7 @@ function aplicarResultadoPago(PDO $db, array $pago, array $transaccion): array {
     if ($resultado['aplicado']) {
         if ($resultado['status'] === 'approved') {
             avisarPorCorreoSiCorresponde($db, $resultado['appointment_id'], 'confirmada');
+            avisarReservaAlEquipo($db, $resultado['appointment_id'], 'pago_aprobado');
         } elseif (in_array($estado, ['declined', 'voided', 'error'], true)) {
             $motivo = $estado === 'declined'
                 ? 'El banco no autorizó la transacción.'
@@ -478,13 +486,8 @@ function confirmarCitaPagada(PDO $db, array $pago, string $medioPago, bool $mont
     $horarioLibre = true;
     if ($cita['status'] === 'cancelled') {
         // La cita se había cancelado por vencimiento: ¿el cupo sigue libre?
-        $choque = $db->prepare(
-            "SELECT COUNT(*) FROM appointments
-              WHERE id <> ? AND date = ? AND status IN ('pending','confirmed')
-                AND time_start < ? AND time_end > ?"
-        );
-        $choque->execute([$cita['id'], $cita['date'], $cita['time_end'], $cita['time_start']]);
-        $horarioLibre = (int)$choque->fetchColumn() === 0;
+        // Con agendas se mira el cupo de su profesional; sin agendas, el del centro.
+        $horarioLibre = citaCabeEnSuHorario($db, $cita);
     }
 
     if ($horarioLibre) {
@@ -582,16 +585,20 @@ function resumenPagosCita(PDO $db, int $citaId, float $totalServicios): array {
     $stmt->execute([$citaId]);
     $r = $stmt->fetch() ?: ['abono' => 0, 'saldo_pagado' => 0];
 
-    $externo = $db->prepare(
+    $stmtExterno = $db->prepare(
         "SELECT COALESCE(SUM(amount), 0)
            FROM finances
           WHERE appointment_id = ? AND type = 'income'
             AND category NOT IN ('Abono en línea', 'Saldo de cita')"
     );
-    $externo->execute([$citaId]);
+    $stmtExterno->execute([$citaId]);
+    $externo = (float)$stmtExterno->fetchColumn();
 
+    // El ingreso que registra Agenda al completar la cita (registrarIngresoCita)
+    // también es dinero ya recibido en el centro: cuenta como saldo pagado, así
+    // no se puede volver a registrar desde esta vista y duplicarlo en Finanzas.
     $abono  = (float)$r['abono'];
-    $saldo  = (float)$r['saldo_pagado'];
+    $saldo  = (float)$r['saldo_pagado'] + $externo;
     $pagado = $abono + $saldo;
 
     return [
@@ -601,7 +608,7 @@ function resumenPagosCita(PDO $db, int $citaId, float $totalServicios): array {
         'pagado'          => $pagado,
         'pendiente'       => max(0.0, round($totalServicios - $pagado, 2)),
         'esta_saldada'    => round($totalServicios - $pagado, 2) <= 0,
-        'ingreso_externo' => (float)$externo->fetchColumn(),
+        'ingreso_externo' => $externo,
     ];
 }
 

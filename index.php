@@ -1,10 +1,14 @@
 <?php
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/includes/functions.php';
+require_once __DIR__ . '/includes/h-negocio.php';
+require_once __DIR__ . '/includes/h-productos.php';
 
 // Servicios destacados y categorías reales (si la BD falla, la home sigue viva)
 $destacados = [];
 $categorias = [];
+$productosInicio = [];   // productos marcados «mostrar en inicio»
+$hayTienda       = false; // ¿hay algún producto activo? (decide si se muestra la sección y el enlace)
 try {
     $db = getDB();
     $destacados = $db->query("
@@ -23,6 +27,14 @@ try {
         LIMIT 4")->fetchAll();
 } catch (Throwable $e) {
     // Sin datos no se rompe la página pública: las secciones simplemente no se pintan
+}
+
+// Productos de la tienda (aparte: si aún no se corrió la migración, solo se omite esta sección)
+try {
+    $productosInicio = productosParaTienda($db, true, 3);
+    $hayTienda       = (int)$db->query('SELECT COUNT(*) FROM products WHERE active = 1')->fetchColumn() > 0;
+} catch (Throwable $e) {
+    $productosInicio = [];
 }
 
 // Cargar imágenes de la galería desde carpeta
@@ -252,6 +264,13 @@ nav {
   font-weight: 600; color: var(--dark); margin-bottom: 6px;
 }
 .featured-head p { font-size: 14px; color: var(--muted); }
+
+/* Productos de la tienda (reutilizan las tarjetas de servicios destacados) */
+.productos { background: #fff; padding: 90px 40px; text-align: center; }
+.productos .featured-grid { margin-top: 0; }
+a.featured-card { color: inherit; text-decoration: none; }
+.featured-tag.featured-tag--agotado { color: #d64545; }
+.featured-cta { font-size: 12.5px; font-weight: 600; color: var(--teal); }
 .featured-grid {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px;
   max-width: 1100px; margin: 0 auto 44px; text-align: left;
@@ -439,7 +458,8 @@ footer { background: var(--dark); color: rgba(255,255,255,0.7); padding: 60px 40
 }
 @media (max-width: 680px)  { .gallery-grid { columns: 2; } }
 @media (max-width: 600px) {
-  .stats             { grid-template-columns: repeat(2, 1fr); }
+  .stats             { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 40px 16px; }
+  .stat              { padding: 16px 8px; }
   .services-grid     { grid-template-columns: 1fr 1fr; }
   .testimonials-grid { grid-template-columns: 1fr; }
   .footer-grid       { grid-template-columns: 1fr; }
@@ -465,6 +485,7 @@ footer { background: var(--dark); color: rgba(255,255,255,0.7); padding: 60px 40
   <div class="nav-links">
     <a href="#inicio">Inicio</a>
     <a href="#servicios">Servicios</a>
+    <?php if ($hayTienda): ?><a href="/Blue/tienda.php">Productos</a><?php endif; ?>
     <a href="#agendar">Agendar Cita</a>
     <a href="#contacto">Contacto</a>
   </div>
@@ -472,7 +493,7 @@ footer { background: var(--dark); color: rgba(255,255,255,0.7); padding: 60px 40
   <div class="nav-right">
     <div class="nav-phone">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.1 1.18 2 2 0 012.12 0h3a2 2 0 012 1.72 12.7 12.7 0 00.7 2.81 2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.7 12.7 0 002.81.7A2 2 0 0122 16.92z"/></svg>
-      +57 300 123 4567
+      <?= e(datoNegocio('telefono')) ?>
     </div>
 
     <!-- Botón acceso administrativo -->
@@ -510,7 +531,6 @@ footer { background: var(--dark); color: rgba(255,255,255,0.7); padding: 60px 40
 </section>
 
 
-<!-- ════════════════ STATS ════════════════ -->
 <section class="stats">
   <div class="stat">
     <div class="stat-icon">
@@ -541,6 +561,9 @@ footer { background: var(--dark); color: rgba(255,255,255,0.7); padding: 60px 40
     <div class="stat-label">Tratamientos Realizados</div>
   </div>
 </section>
+
+
+<!-- ════════════════ STATS ════════════════ -->
 
 
 <!-- ════════════════ SERVICIOS ════════════════ -->
@@ -588,7 +611,7 @@ footer { background: var(--dark); color: rgba(255,255,255,0.7); padding: 60px 40
               <p><?= htmlspecialchars($s['description'], ENT_QUOTES, 'UTF-8') ?></p>
             <?php endif; ?>
             <div class="featured-foot">
-              <span class="featured-price"><?= formatPrice((float)$s['price']) ?></span>
+              <span class="featured-price"><?= (float)$s['price'] > 0 ? formatPrice((float)$s['price']) : 'Sin costo' ?></span>
               <span class="featured-dur"><?= (int)$s['duration_min'] ?> min</span>
             </div>
           </div>
@@ -602,6 +625,46 @@ footer { background: var(--dark); color: rgba(255,255,255,0.7); padding: 60px 40
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
   </a>
 </section>
+
+
+<!-- ════════════════ PRODUCTOS ════════════════ -->
+<?php if ($hayTienda): ?>
+<section class="productos" id="productos">
+  <div class="section-badge">Nuestros Productos</div>
+  <h2 class="section-title">Cuida tu piel <span class="accent">en casa</span></h2>
+  <p class="section-sub">Productos elegidos por nuestro equipo. Arma tu pedido en línea y recógelo en el centro cuando esté listo.</p>
+
+  <?php if ($productosInicio): ?>
+    <div class="featured-grid">
+      <?php foreach ($productosInicio as $p): $img = urlImagenProducto($p['image'] ?? null); ?>
+        <a class="featured-card" href="/Blue/tienda.php#producto-<?= (int)$p['id'] ?>">
+          <div class="featured-img">
+            <?php if ($img): ?>
+              <img src="<?= htmlspecialchars($img, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($p['name'], ENT_QUOTES, 'UTF-8') ?>" loading="lazy">
+            <?php endif; ?>
+            <?php if ($p['agotado']): ?><span class="featured-tag featured-tag--agotado">Agotado</span><?php endif; ?>
+          </div>
+          <div class="featured-body">
+            <h4><?= htmlspecialchars($p['name'], ENT_QUOTES, 'UTF-8') ?></h4>
+            <?php if (!empty($p['description'])): ?>
+              <p><?= htmlspecialchars($p['description'], ENT_QUOTES, 'UTF-8') ?></p>
+            <?php endif; ?>
+            <div class="featured-foot">
+              <span class="featured-price"><?= formatPrice($p['price']) ?></span>
+              <span class="featured-cta"><?= $p['agotado'] ? 'Ver en la tienda' : 'Agregar al pedido →' ?></span>
+            </div>
+          </div>
+        </a>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
+
+  <a href="/Blue/tienda.php" class="btn-link">
+    Ver toda la tienda
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+  </a>
+</section>
+<?php endif; ?>
 
 
 <!-- ════════════════ CTA ════════════════ -->
@@ -735,9 +798,9 @@ footer { background: var(--dark); color: rgba(255,255,255,0.7); padding: 60px 40
     <div class="footer-col footer-contact">
       <h4>Contacto</h4>
       <p class="footer-contact-list">
-        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg> Calle Principal #123, Centro Comercial Blue</span>
-        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0122 16.92z"/></svg> +57 300 123 4567</span>
-        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z"/><polyline points="22,6 12,13 2,6"/></svg> info@bluetherapy.com</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg> <?= e(datoNegocio('direccion')) ?></span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0122 16.92z"/></svg> <?= e(datoNegocio('telefono')) ?></span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z"/><polyline points="22,6 12,13 2,6"/></svg> <?= e(datoNegocio('correo')) ?></span>
       </p>
     </div>
   </div>
