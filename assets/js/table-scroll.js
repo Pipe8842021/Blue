@@ -38,7 +38,33 @@
     window.addEventListener('resize', check, { passive: true });
   }
 
+  // Rotula cada celda con el encabezado de su columna (data-label) para que, en celular,
+  // la tabla se muestre como tarjetas (ver "Tablas en tarjetas" en admin.css).
+  function etiquetar(tabla) {
+    var cabeceras = Array.prototype.map.call(
+      tabla.querySelectorAll('thead th'),
+      function (th) { return th.textContent.trim(); }
+    );
+    tabla.querySelectorAll('tbody tr').forEach(function (fila) {
+      Array.prototype.forEach.call(fila.children, function (celda, i) {
+        if (celda.colSpan > 1) return;
+        var texto = cabeceras[i] || '';
+        // La primera columna es el título de la tarjeta; "Acciones" va sin rótulo
+        if (i === 0) celda.classList.add('td-titulo');
+        else if (texto && !/^acciones?$/i.test(texto)) {
+          celda.setAttribute('data-label', texto);
+          // Un solo hijo para que el contenido (varias líneas) no se reparta en columnas
+          var valor = document.createElement('span');
+          valor.className = 'td-valor';
+          while (celda.firstChild) valor.appendChild(celda.firstChild);
+          celda.appendChild(valor);
+        } else celda.classList.add('td-acciones');
+      });
+    });
+  }
+
   function init() {
+    document.querySelectorAll('table.data-table').forEach(etiquetar);
     document.querySelectorAll('.table-wrap').forEach(equipar);
   }
 

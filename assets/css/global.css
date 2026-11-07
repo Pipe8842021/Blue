@@ -240,9 +240,9 @@ button, input, select, textarea { font-family: var(--font-body); font-size: inhe
     font-weight: 500;
 }
 
-.flash--success { background: #e0f8ef; color: #0a5c38; border-left: 3px solid var(--success); }
-.flash--error   { background: #fce8e8; color: #8b1a1a; border-left: 3px solid var(--danger); }
-.flash--info    { background: var(--cyan-50); color: var(--cyan-600); border-left: 3px solid var(--cyan-300); }
+.flash--success { background: #e0f8ef; color: #0a5c38; border: 1px solid rgba(16,185,129,.35); }
+.flash--error   { background: #fce8e8; color: #8b1a1a; border: 1px solid rgba(239,68,68,.35); }
+.flash--info    { background: var(--cyan-50); color: var(--cyan-600); border: 1px solid var(--cyan-300); }
 
 /* ====================================================
    Formularios base

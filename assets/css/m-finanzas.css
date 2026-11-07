@@ -250,6 +250,7 @@
 .field-feedback { display: block; font-size: 11px; margin-top: 4px; }
 .field-feedback.error { color: var(--cancelled, #ef4444); }
 .field-feedback.ok    { color: var(--confirmed, #10b981); }
+.field-feedback[hidden] { display: none; } /* display:block anulaba el atributo hidden */
 
 /* ── Responsive ── */
 @media (max-width: 900px) {
@@ -461,7 +462,6 @@
     padding: 14px 16px;
     border-radius: 12px;
     border: 1.5px solid currentColor;
-    border-left-width: 5px;
 }
 .diag-resumen--ok    { background: var(--fp-ok-fondo);    color: var(--fp-ok-tinta); }
 .diag-resumen--error { background: var(--fp-error-fondo); color: var(--fp-error-tinta); }
